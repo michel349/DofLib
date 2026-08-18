@@ -73,6 +73,18 @@ const SCHEMA = `
     item_name TEXT NOT NULL UNIQUE,
     quantite INTEGER DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS attributions (
+    id SERIAL PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    personnage TEXT NOT NULL,
+    compte TEXT DEFAULT '',
+    quantite INTEGER DEFAULT 1,
+    statut TEXT DEFAULT 'a_farmer' CHECK (statut IN ('a_farmer','a_crafter','en_cours','fait')),
+    "createdAt" TIMESTAMPTZ DEFAULT now()
+  );
+
+  ALTER TABLE attributions ADD COLUMN IF NOT EXISTS statut TEXT DEFAULT 'a_farmer';
 `;
 
 async function initDb() {
@@ -349,6 +361,35 @@ app.put('/api/inventaire', asyncHandler(async (req, res) => {
 
 app.delete('/api/inventaire/:id', asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM inventaire WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// ---------- Attributions ----------
+app.get('/api/attributions', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM attributions ORDER BY compte, personnage, item_name');
+  res.json(rows);
+}));
+
+app.post('/api/attributions', asyncHandler(async (req, res) => {
+  const { item_name, personnage, compte = '', quantite = 1, statut = 'a_farmer' } = req.body;
+  const { rows } = await pool.query(
+    'INSERT INTO attributions (item_name, personnage, compte, quantite, statut) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+    [item_name, personnage, compte, quantite, statut]
+  );
+  res.json(rows[0]);
+}));
+
+app.put('/api/attributions/:id', asyncHandler(async (req, res) => {
+  const { item_name, personnage, compte, quantite, statut } = req.body;
+  const { rows } = await pool.query(
+    'UPDATE attributions SET item_name=$1, personnage=$2, compte=$3, quantite=$4, statut=$5 WHERE id=$6 RETURNING *',
+    [item_name, personnage, compte, quantite, statut, req.params.id]
+  );
+  res.json(rows[0]);
+}));
+
+app.delete('/api/attributions/:id', asyncHandler(async (req, res) => {
+  await pool.query('DELETE FROM attributions WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 }));
 
