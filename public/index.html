@@ -493,7 +493,10 @@ function bindSearch(inputId, resultsId, onSelect) {
         results.innerHTML = items.length
           ? items.map(i => `
               <div class="result-item" onclick="${onSelect}(${i.id}, ${JSON.stringify(i.name)});">
-                <strong>${esc(i.name)}</strong> <span class="muted">(niv. ${i.level})</span>
+                ${i.img_url ? `<img src="${esc(i.img_url)}" style="width:24px;height:24px;vertical-align:middle;margin-right:6px;border-radius:4px;">` : ''}
+                <strong>${esc(i.name)}</strong>
+                <span class="muted">(niv. ${i.level})</span>
+                ${i.type ? `<span class="badge info" style="margin-left:6px;font-size:0.7rem;">${esc(i.type)}</span>` : ''}
               </div>
             `).join('')
           : '<div class="result-item muted">Aucun résultat</div>';

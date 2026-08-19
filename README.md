@@ -74,6 +74,17 @@ Ouvre [http://localhost:3000](http://localhost:3000)
 - Recherche d'items : `GET https://api.dofusdb.fr/items?search[name]=...&lang=fr`
 - Recettes de craft : `GET https://api.dofusdb.fr/recipes?resultId=<itemId>`
 
+## 🔄 Scraping automatique des items
+
+Au premier démarrage, DofLib aspire **tous les items** de l'API DofusDB (plusieurs centaines de pages, ~70 000 items) dans PostgreSQL (table `dofus_items`). La recherche utilise ensuite cette base locale : rapide et même utilisable si l'API externe est indisponible.
+
+- Le scraping tourne en arrière-plan, il n'accepte pas le serveur
+- Reprise automatique : les items déjà en base ne sont pas retéléchargés
+- Si la base est vide, le scraping démarre tout seul au boot
+- Statut : `GET /api/items/scrape`
+- Relance manuelle : `POST /api/items/scrape`
+- Parcourir la base : `GET /api/items?limit=30&page=1`
+
 ## 📁 Structure du projet
 
 ```
