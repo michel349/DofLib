@@ -3,232 +3,261 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DofLib — Gestionnaire Dofus</title>
+<title>DofLib — Gestionnaire Krosmoz</title>
 <style>
-  /* ============ Style inspiré de l'interface Dofus ============ */
+  /* ============ Style Krosmoz : sombre, épuré, futuriste ============ */
   :root {
-    --bg: #ecdcc0;
-    --panel: #d8c49e;
-    --panel-light: #e4d2ae;
-    --panel-dark: #cbb188;
-    --border: #3c2b1e;
-    --text: #2e2015;
-    --muted: #7a6648;
-    --gold: #c9a227;
-    --gold-light: #f0d68a;
-    --green: #3f7d3f;
-    --red: #a03028;
-    --blue: #35678f;
+    --bg: #0b1022;
+    --panel: #131a33;
+    --panel-2: #1a2342;
+    --border: rgba(0,166,255,.18);
+    --border-strong: rgba(0,166,255,.35);
+    --text: #e8ecf8;
+    --muted: #8a94b0;
+    --cyan: #00a6ff;
+    --cyan-2: #56ccff;
+    --pink: #ff5c8a;
+    --purple: #7b5cff;
+    --yellow: #ffcf4d;
+    --green: #4ade80;
+    --red: #ff5c5c;
+    --radius: 10px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: Tahoma, Geneva, sans-serif;
-    background: var(--bg);
+    font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
     background-image:
-      linear-gradient(45deg, rgba(60,43,30,.03) 25%, transparent 25%),
-      linear-gradient(-45deg, rgba(60,43,30,.03) 25%, transparent 25%);
-    background-size: 28px 28px;
+      radial-gradient(1px 1px at 25px 45px, rgba(255,255,255,.5), transparent),
+      radial-gradient(1px 1px at 120px 90px, rgba(0,166,255,.5), transparent),
+      radial-gradient(1.5px 1.5px at 200px 30px, rgba(255,255,255,.35), transparent),
+      radial-gradient(1px 1px at 300px 120px, rgba(123,92,255,.5), transparent),
+      radial-gradient(1px 1px at 80px 180px, rgba(255,92,138,.4), transparent),
+      radial-gradient(1.5px 1.5px at 400px 200px, rgba(255,255,255,.3), transparent),
+      radial-gradient(1px 1px at 520px 60px, rgba(86,204,255,.5), transparent),
+      radial-gradient(ellipse at 50% -10%, rgba(0,166,255,.12), transparent 55%);
+    background-size: 560px 260px, 560px 260px, 560px 260px, 560px 260px, 560px 260px, 560px 260px, 560px 260px, 100% 100%;
     color: var(--text);
     min-height: 100vh;
     font-size: 14px;
+    line-height: 1.5;
   }
+
+  ::selection { background: rgba(0,166,255,.35); }
 
   /* ---------- En-tête ---------- */
   header {
-    background: #352419;
-    border-bottom: 3px solid #1d120a;
-    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(11,16,34,.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     flex-wrap: wrap;
-    box-shadow: inset 0 -3px 0 rgba(255,255,255,.08);
   }
 
   .brand {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #f0d68a;
-    text-shadow: 1px 1px 0 #1d120a;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: .5px;
     white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
-  .brand span { color: #fff; }
+  .brand .gem {
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+    background: linear-gradient(135deg, var(--cyan-2), var(--purple));
+    border-radius: 2px;
+    box-shadow: 0 0 12px rgba(0,166,255,.6);
+  }
+  .brand span { background: linear-gradient(90deg, var(--cyan-2), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
   .global-search {
     flex: 1;
-    max-width: 480px;
+    max-width: 460px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: #ecdcc0;
-    border: 2px solid #1d120a;
-    border-radius: 6px;
-    padding: 8px 12px;
+    gap: 10px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 14px;
     cursor: pointer;
+    transition: border-color .15s, background .15s;
   }
-  .global-search:hover { background: #f6e9cd; }
-  .global-search .gs-icon { font-size: 15px; }
-  .global-search .gs-placeholder { color: #7a6648; flex: 1; font-size: 13px; }
+  .global-search:hover { border-color: var(--border-strong); background: rgba(255,255,255,.08); }
+  .global-search .gs-icon { font-size: 14px; opacity: .7; }
+  .global-search .gs-placeholder { color: var(--muted); flex: 1; font-size: 13px; }
   .global-search kbd {
-    background: #cdb188;
-    border: 1px solid #7a6648;
-    border-radius: 3px;
-    padding: 1px 6px;
-    font-size: 11px;
-    color: #2e2015;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 10px;
+    color: var(--muted);
     font-family: inherit;
   }
 
   nav { display: flex; gap: 4px; flex-wrap: wrap; }
 
   nav button {
-    background: linear-gradient(to bottom, #6b4f33, #4a3728);
-    border: 2px solid #1d120a;
-    border-radius: 5px;
-    color: #f0d68a;
-    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+    padding: 6px 14px;
     cursor: pointer;
     font-size: 12px;
-    font-weight: bold;
+    font-weight: 600;
     font-family: inherit;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+    transition: all .15s;
   }
-  nav button:hover { background: linear-gradient(to bottom, #7d5e3d, #5a4230); color: #fff; }
+  nav button:hover { color: var(--text); background: rgba(255,255,255,.06); }
   nav button.active {
-    background: linear-gradient(to bottom, #f0d68a, #caa34e);
-    color: #2e2015;
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.4);
+    color: #fff;
+    background: linear-gradient(135deg, var(--cyan), #0077cc);
+    box-shadow: 0 0 16px rgba(0,166,255,.35);
+    border-color: rgba(86,204,255,.4);
   }
 
   main {
-    max-width: 1400px;
+    max-width: 1300px;
     margin: 0 auto;
-    padding: 20px 20px 50px;
+    padding: 24px 20px 60px;
   }
 
   .tab { display: none; }
-  .tab.active { display: block; }
+  .tab.active { display: block; animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-  /* ---------- Panneaux (style Dofus) ---------- */
+  /* ---------- Cartes ---------- */
   .card {
-    background: linear-gradient(to bottom, var(--panel-light), var(--panel-dark));
-    border: 2px solid var(--border);
-    border-radius: 8px;
+    background: linear-gradient(160deg, rgba(26,35,66,.85), rgba(13,18,36,.9));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 18px 20px;
-    margin-bottom: 18px;
-    box-shadow:
-      inset 0 2px 0 rgba(255,255,255,.35),
-      inset 0 -3px 0 rgba(60,43,30,.2),
-      0 3px 0 rgba(60,43,30,.4);
+    margin-bottom: 16px;
   }
 
   .card h2 {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 1.15rem;
-    font-weight: bold;
-    margin-bottom: 12px;
-    color: #3c2b1e;
-    border-bottom: 2px solid rgba(60,43,30,.25);
-    padding-bottom: 8px;
+    font-size: .95rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--text);
     display: flex;
     align-items: center;
     gap: 8px;
   }
+  .card h2::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--cyan), var(--purple));
+    flex-shrink: 0;
+  }
 
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
 
   /* ---------- Icônes items ---------- */
   .item-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 6px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
     object-fit: contain;
-    background: #f4ebd4;
-    border: 2px solid #7a6648;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
     flex-shrink: 0;
     padding: 3px;
   }
-  .list-item .item-icon { width: 52px; height: 52px; }
+  .list-item .item-icon { width: 48px; height: 48px; }
   .item-icon.placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    color: #7a6648;
+    font-size: 20px;
+    color: var(--muted);
+    border: 1px dashed rgba(255,255,255,.15);
   }
-  table .item-icon { width: 40px; height: 40px; }
 
-  /* ---------- Formulaires ---------- */
+  /* ---------- Champs ---------- */
   input, select, textarea {
-    background: #f4ebd4;
-    border: 2px solid #6b4f33;
-    border-radius: 4px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 8px;
     color: var(--text);
-    padding: 8px 11px;
+    padding: 8px 12px;
     font-size: 13px;
     font-family: inherit;
     width: 100%;
-    box-shadow: inset 0 1px 3px rgba(60,43,30,.15);
+    transition: border-color .15s, background .15s, box-shadow .15s;
   }
   input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--gold);
-    background: #fdf6e3;
+    border-color: var(--border-strong);
+    background: rgba(255,255,255,.07);
+    box-shadow: 0 0 0 3px rgba(0,166,255,.12);
   }
-  input::placeholder, textarea::placeholder { color: #a08c68; }
+  input::placeholder, textarea::placeholder { color: #5d6a8c; }
   textarea { resize: vertical; min-height: 90px; }
+  select option { background: var(--panel); color: var(--text); }
 
-  /* ---------- Boutons (style Dofus) ---------- */
+  /* ---------- Boutons ---------- */
   .btn {
-    background: linear-gradient(to bottom, #f0d68a, #caa34e);
-    border: 2px solid #3c2b1e;
-    border-radius: 5px;
-    color: #2e2015;
-    padding: 8px 15px;
+    background: linear-gradient(135deg, var(--cyan), #0077cc);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    padding: 8px 16px;
     cursor: pointer;
     font-size: 13px;
-    font-weight: bold;
+    font-weight: 600;
     font-family: inherit;
-    box-shadow:
-      inset 0 2px 0 rgba(255,255,255,.4),
-      inset 0 -2px 0 rgba(60,43,30,.2),
-      0 2px 0 rgba(60,43,30,.4);
-    text-shadow: 0 1px 0 rgba(255,255,255,.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    transition: filter .15s, transform .1s, box-shadow .15s;
+    box-shadow: 0 2px 8px rgba(0,166,255,.2);
   }
-  .btn:hover { background: linear-gradient(to bottom, #ffe7a0, #dbb661); }
-  .btn:active { box-shadow: inset 0 3px 6px rgba(60,43,30,.35); transform: translateY(1px); }
-  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn:hover { filter: brightness(1.15); box-shadow: 0 4px 14px rgba(0,166,255,.3); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; box-shadow: none; }
 
   .btn.secondary {
-    background: linear-gradient(to bottom, #d8c49e, #b89a6e);
-    text-shadow: none;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    color: var(--text);
+    box-shadow: none;
   }
-  .btn.secondary:hover { background: linear-gradient(to bottom, #e4d2ae, #c7a77b); }
+  .btn.secondary:hover { background: rgba(255,255,255,.13); filter: none; }
 
   .btn.danger {
-    background: linear-gradient(to bottom, #d98b7a, #a84a3a);
-    color: #fff;
-    text-shadow: 0 1px 0 rgba(0,0,0,.3);
+    background: linear-gradient(135deg, var(--pink), #d63060);
+    box-shadow: 0 2px 8px rgba(255,92,138,.2);
   }
-  .btn.danger:hover { background: linear-gradient(to bottom, #e79b89, #b95947); }
+  .btn.danger:hover { box-shadow: 0 4px 14px rgba(255,92,138,.3); }
 
   .btn.success {
-    background: linear-gradient(to bottom, #8fbf74, #5a9442);
-    color: #fff;
-    text-shadow: 0 1px 0 rgba(0,0,0,.3);
+    background: linear-gradient(135deg, var(--green), #22b05e);
+    box-shadow: 0 2px 8px rgba(74,222,128,.2);
   }
-  .btn.success:hover { background: linear-gradient(to bottom, #9ed084, #69a950); }
+  .btn.success:hover { box-shadow: 0 4px 14px rgba(74,222,128,.3); }
 
-  .btn.tiny { padding: 4px 8px; font-size: 11px; border-radius: 4px; }
-  .btn.small { padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+  .btn.tiny { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+  .btn.small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
 
+  /* ---------- Rows ---------- */
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .row > * { flex: 0 1 auto; }
   .row .grow { flex: 1 1 180px; }
@@ -239,26 +268,26 @@
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    border: 2px solid rgba(60,43,30,.4);
-    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
     margin-bottom: 8px;
-    background: rgba(244,235,212,.5);
+    background: rgba(255,255,255,.03);
     flex-wrap: wrap;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+    transition: background .15s, border-color .15s;
   }
-  .list-item:hover { background: rgba(244,235,212,.8); border-color: var(--gold); }
-  .list-item .name { flex: 1 1 180px; font-size: 14px; }
-  .list-item .name strong { font-size: 14px; }
+  .list-item:hover { background: rgba(255,255,255,.06); border-color: rgba(0,166,255,.25); }
+  .list-item .name { flex: 1 1 180px; }
+  .list-item .name strong { font-size: 13.5px; font-weight: 600; }
 
-  .check { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+  .check { width: 16px; height: 16px; accent-color: var(--cyan); cursor: pointer; flex-shrink: 0; }
 
   .pending-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: rgba(201,162,39,.15);
-    border: 2px dashed #a08020;
-    border-radius: 5px;
+    background: rgba(0,166,255,.08);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
     padding: 8px 12px;
     font-size: 13px;
     margin-bottom: 10px;
@@ -266,79 +295,84 @@
 
   /* ---------- Badges ---------- */
   .badge {
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: bold;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
     white-space: nowrap;
-    border: 1px solid rgba(60,43,30,.4);
+    letter-spacing: .2px;
   }
-  .badge.success { background: #cfe3b8; color: #2e5a1e; }
-  .badge.warning { background: #f2dc9a; color: #7a5a10; }
-  .badge.danger { background: #ecc3b8; color: #8c2f22; }
-  .badge.info { background: #bfd8e8; color: #234b68; }
-  .badge.accent { background: #f2dc9a; color: #7a5a10; }
-  .badge.gold { background: #f2dc9a; color: #7a5a10; }
-  .badge.craftable { background: #cfe3b8; color: #2e5a1e; border: 1px solid #5a9442; }
-  .badge.neutral { background: #d8c49e; color: #5a4630; }
+  .badge.success { background: rgba(74,222,128,.12); color: var(--green); border: 1px solid rgba(74,222,128,.3); }
+  .badge.warning { background: rgba(255,207,77,.12); color: var(--yellow); border: 1px solid rgba(255,207,77,.3); }
+  .badge.danger { background: rgba(255,92,92,.12); color: var(--red); border: 1px solid rgba(255,92,92,.3); }
+  .badge.info { background: rgba(0,166,255,.12); color: var(--cyan-2); border: 1px solid rgba(0,166,255,.3); }
+  .badge.accent, .badge.gold { background: rgba(123,92,255,.12); color: #b3a0ff; border: 1px solid rgba(123,92,255,.3); }
+  .badge.neutral { background: rgba(255,255,255,.07); color: var(--muted); border: 1px solid rgba(255,255,255,.12); }
+  .badge.craftable { background: rgba(74,222,128,.12); color: var(--green); border: 1px solid rgba(74,222,128,.3); }
 
   /* ---------- Tables ---------- */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td {
-    text-align: left;
-    padding: 9px 11px;
-    border-bottom: 1px solid rgba(60,43,30,.25);
-  }
+  th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid rgba(255,255,255,.06); }
   th {
-    color: #5a3e20;
-    font-weight: bold;
+    color: var(--muted);
+    font-weight: 600;
     text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: .5px;
-    background: rgba(60,43,30,.08);
+    font-size: 10.5px;
+    letter-spacing: .6px;
+    background: rgba(255,255,255,.02);
   }
-  tbody tr:hover { background: rgba(244,235,212,.5); }
+  tbody tr:hover { background: rgba(0,166,255,.04); }
   td { vertical-align: middle; }
 
-  .muted { color: var(--muted); }
+  .muted { color: var(--muted); font-size: 12.5px; }
   .success-text { color: var(--green); }
   .danger-text { color: var(--red); }
 
-  .statut-select { width: auto; padding: 4px 7px; font-size: 11px; border-radius: 3px; }
+  .statut-select { width: auto; padding: 4px 8px; font-size: 11px; border-radius: 6px; }
 
   .inv-qty-input {
     width: 80px;
     text-align: center;
-    padding: 5px 7px;
+    padding: 5px 8px;
     font-size: 13px;
-    font-weight: bold;
+    font-weight: 600;
+  }
+
+  code {
+    background: rgba(0,166,255,.1);
+    border: 1px solid rgba(0,166,255,.2);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 11px;
+    color: var(--cyan-2);
   }
 
   /* ---------- Scrollbar ---------- */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: #cdb188; }
-  ::-webkit-scrollbar-thumb { background: #6b4f33; border-radius: 5px; border: 2px solid #cdb188; }
-  ::-webkit-scrollbar-thumb:hover { background: #4a3728; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,166,255,.3); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,166,255,.5); }
 
-  /* ---------- Palette de recherche ---------- */
+  /* ---------- Palette ---------- */
   .palette-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(30, 20, 10, .7);
+    background: rgba(5,8,18,.75);
+    backdrop-filter: blur(4px);
     z-index: 200;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 10vh;
+    padding-top: 12vh;
   }
   .palette-overlay.show { display: flex; }
 
   .palette {
     width: min(640px, 94vw);
-    background: linear-gradient(to bottom, var(--panel-light), var(--panel-dark));
-    border: 3px solid var(--border);
-    border-radius: 8px;
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 8px 24px rgba(0,0,0,.5);
+    background: linear-gradient(160deg, rgba(26,35,66,.98), rgba(13,18,36,.98));
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 30px rgba(0,166,255,.08);
     overflow: hidden;
   }
 
@@ -346,29 +380,26 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 13px 16px;
-    border-bottom: 2px solid var(--border);
-    background: rgba(60,43,30,.1);
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
   }
-  .palette-input-wrap .gs-icon { font-size: 16px; }
+  .palette-input-wrap .gs-icon { font-size: 15px; opacity: .7; }
   .palette-input {
     border: none;
     background: transparent;
     box-shadow: none;
-    padding: 6px 0;
+    padding: 4px 0;
     font-size: 16px;
-    font-weight: bold;
-    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 600;
   }
   .palette-input:focus { border: none; box-shadow: none; background: transparent; }
-  .palette-input::placeholder { color: #a08c68; }
+  .palette-input::placeholder { color: #5d6a8c; }
 
   .palette-hint {
-    padding: 10px 16px;
+    padding: 10px 18px;
     font-size: 12px;
     color: var(--muted);
-    border-bottom: 1px solid rgba(60,43,30,.25);
-    font-style: italic;
+    border-bottom: 1px solid rgba(255,255,255,.06);
   }
 
   .palette-results { max-height: 380px; overflow-y: auto; }
@@ -377,21 +408,21 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 9px 16px;
+    padding: 9px 18px;
     cursor: pointer;
-    border-bottom: 1px solid rgba(60,43,30,.2);
-    background: rgba(244,235,212,.25);
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    transition: background .12s;
   }
-  .palette-item:hover { background: rgba(244,235,212,.8); }
+  .palette-item:hover { background: rgba(0,166,255,.08); }
   .palette-item:last-child { border-bottom: none; }
 
   .palette-img {
-    width: 42px;
-    height: 42px;
-    border-radius: 4px;
+    width: 40px;
+    height: 40px;
+    border-radius: 7px;
     object-fit: contain;
-    background: #f4ebd4;
-    border: 2px solid #7a6648;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
     padding: 2px;
     flex-shrink: 0;
   }
@@ -399,8 +430,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    color: #7a6648;
+    font-size: 18px;
+    color: var(--muted);
+    border-style: dashed;
+    border-color: rgba(255,255,255,.15);
   }
 
   .palette-info { flex: 1; min-width: 0; }
@@ -414,7 +447,8 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(30, 20, 10, .7);
+    background: rgba(5,8,18,.75);
+    backdrop-filter: blur(4px);
     z-index: 100;
     align-items: center;
     justify-content: center;
@@ -422,23 +456,22 @@
   .modal-overlay.show { display: flex; }
 
   .modal {
-    background: linear-gradient(to bottom, var(--panel-light), var(--panel-dark));
-    border: 3px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
+    background: linear-gradient(160deg, rgba(26,35,66,.98), rgba(13,18,36,.98));
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 22px;
     width: 90%;
     max-width: 480px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 8px 24px rgba(0,0,0,.5);
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
   }
   .modal h2 {
-    margin-bottom: 14px;
-    color: #3c2b1e;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 1.05rem;
-    border-bottom: 2px solid rgba(60,43,30,.25);
-    padding-bottom: 8px;
+    margin-bottom: 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    padding-bottom: 10px;
   }
 
   /* ---------- Toast ---------- */
@@ -447,24 +480,24 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: #4a3728;
-    border: 2px solid var(--gold);
-    color: #f0d68a;
+    background: rgba(13,18,36,.95);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
     padding: 10px 20px;
-    border-radius: 6px;
-    font-weight: bold;
+    border-radius: 10px;
+    font-weight: 600;
     font-size: 13px;
     z-index: 300;
     opacity: 0;
     pointer-events: none;
     transition: all .2s ease;
-    box-shadow: 0 6px 16px rgba(0,0,0,.4);
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   @media (max-width: 700px) {
-    main { padding: 12px 10px 40px; }
-    header { padding: 8px 10px; }
+    main { padding: 14px 12px 40px; }
+    header { padding: 8px 12px; }
     .global-search { max-width: none; order: 3; width: 100%; }
   }
 </style>
@@ -472,10 +505,10 @@
 <body>
 
 <header>
-  <div class="brand">🍃 Dof<span>Lib</span></div>
+  <div class="brand"><span class="gem"></span>Dof<span>Lib</span></div>
   <div class="global-search" onclick="openPalette()">
     <span class="gs-icon">🔍</span>
-    <span class="gs-placeholder">Rechercher un item, un équipement…</span>
+    <span class="gs-placeholder">Rechercher un item…</span>
     <kbd>Ctrl K</kbd>
   </div>
   <nav>
@@ -506,7 +539,7 @@
     <div class="card">
       <h2>⚙️ Générer la farm list</h2>
       <div class="row">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;">
           <input type="checkbox" id="useInventory" checked style="width:auto;"> Soustraire l'inventaire
         </label>
         <button class="btn" id="generateBtn" onclick="generateFarm()">🔨 Générer la liste de farm</button>
@@ -526,9 +559,9 @@
       <div class="row">
         <button class="btn" onclick="openPalette('suivi')">🔍 Choisir un item</button>
         <input type="number" id="suiviQty" value="1" min="1" style="width:80px;" title="Qté">
-        <input type="text" id="suiviPerso" placeholder="Personnage" style="width:150px;" list="persoList">
+        <input type="text" id="suiviPerso" placeholder="Personnage" style="width:140px;" list="persoList">
         <datalist id="persoList"></datalist>
-        <input type="text" id="suiviCompte" placeholder="Compte (opt.)" style="width:130px;">
+        <input type="text" id="suiviCompte" placeholder="Compte (opt.)" style="width:120px;">
         <select id="suiviStatut" style="width:125px;">
           <option value="a_farmer">🌾 À farmer</option>
           <option value="a_crafter">🔨 À crafter</option>
@@ -632,7 +665,7 @@
   <section id="tab-maintenance" class="tab">
     <div class="card">
       <h2>⚙️ Maintenance de la base d'items</h2>
-      <p class="muted" style="margin-bottom:14px;font-size:12px;">
+      <p class="muted" style="margin-bottom:14px;">
         La base <code>dofus_items</code> peut contenir des éléments inutiles (monstres, sorts, montures…)
         récupérés depuis l'API DofusDB. Utilise le nettoyage pour ne garder que les items réellement farmables.
       </p>
@@ -647,7 +680,7 @@
 
     <div class="card">
       <h2>🔄 Scraping DofusDB</h2>
-      <p class="muted" style="margin-bottom:14px;font-size:12px;">
+      <p class="muted" style="margin-bottom:14px;">
         Lance un scraping de reprise pour récupérer les items manquants (ex. équipements bas niveau comme Padgref)
         et les recettes de craft. Le scraping saute les items déjà en base.
       </p>
@@ -659,7 +692,7 @@
     </div>
 
     <div class="card">
-      <h2> Types présents en base</h2>
+      <h2>📊 Types présents en base</h2>
       <div id="maintenanceTypes" style="max-height:380px;overflow-y:auto;">
         <p class="muted">Chargement…</p>
       </div>
@@ -693,7 +726,7 @@
       <input type="text" id="paletteInput" class="palette-input" placeholder="Tape le nom d'un item... (2 lettres min)">
       <button class="btn tiny secondary" onclick="closePalette()" style="flex-shrink:0;">ESC</button>
     </div>
-    <div style="padding:8px 16px 6px;border-bottom:1px solid rgba(60,43,30,.25);">
+    <div style="padding:8px 18px 8px;border-bottom:1px solid rgba(255,255,255,.08);">
       <select id="paletteType" style="width:auto;max-width:100%;">
         <option value="">🎲 Tous les types</option>
       </select>
@@ -783,7 +816,6 @@ let paletteMode = null; // null | 'farm' | 'suivi' | 'inventaire' | 'stuff'
 let paletteSearchTimer = null;
 let paletteTypesLoaded = false;
 
-// Chargement des types d'items (filtre de la palette)
 async function loadPaletteTypes() {
   try {
     const types = await api('/api/item-types');
@@ -1002,10 +1034,10 @@ async function generateFarm() {
   try {
     const data = await api('/api/generate-farm', { method: 'POST', body: { items: currentFarmItems, useInventory } });
     const container = document.getElementById('generatedList');
-    let html = '<h3 style="margin-bottom:10px;color:#3c2b1e;font-family:Georgia,serif;">📋 Ressources nécessaires</h3>';
+    let html = '<h3 style="margin-bottom:10px;color:var(--text);font-weight:700;">📋 Ressources nécessaires</h3>';
 
     if (data.errors && data.errors.length) {
-      html += `<div class="card" style="border-color:#a03028;">
+      html += `<div class="card" style="border-color:rgba(255,92,92,.4);">
         <h2>⚠️ Erreurs de récupération</h2>
         ${data.errors.map(e => `<p class="danger-text" style="margin-bottom:4px;">• ${esc(e)}</p>`).join('')}
       </div>`;
@@ -1032,7 +1064,7 @@ async function generateFarm() {
     container.innerHTML = html;
   } catch (e) {
     document.getElementById('generatedList').innerHTML =
-      `<div class="card" style="border-color:#a03028;"><h2>❌ Erreur</h2><p class="danger-text">${esc(e.message)}</p></div>`;
+      `<div class="card" style="border-color:rgba(255,92,92,.4);"><h2>❌ Erreur</h2><p class="danger-text">${esc(e.message)}</p></div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '🔨 Générer la liste de farm';
@@ -1501,11 +1533,11 @@ async function loadMaintenanceStats() {
         return `
           <div style="margin-bottom:6px;">
             <div class="row" style="margin-bottom:2px;">
-              <span style="flex:1;font-size:12px;">${esc(t.type || '(sans type)')}</span>
+              <span style="flex:1;font-size:12.5px;">${esc(t.type || '(sans type)')}</span>
               <span class="badge ${isNonItem ? 'danger' : 'neutral'}">${formatNumber(t.count)} items</span>
             </div>
-            <div style="background:rgba(60,43,30,.15);border-radius:3px;height:8px;overflow:hidden;border:1px solid rgba(60,43,30,.3);">
-              <div style="height:100%;background:${isNonItem ? '#a03028' : '#c9a227'};width:${pct}%;border-radius:3px;"></div>
+            <div style="background:rgba(255,255,255,.07);border-radius:4px;height:6px;overflow:hidden;">
+              <div style="height:100%;background:${isNonItem ? 'linear-gradient(90deg,#ff5c5c,#ff2d55)' : 'linear-gradient(90deg,#00a6ff,#7b5cff)'};width:${pct}%;border-radius:4px;"></div>
             </div>
           </div>
         `;
