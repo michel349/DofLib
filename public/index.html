@@ -318,6 +318,7 @@
   .badge.info { background: rgba(90,159,212,.14); color: var(--blue); }
   .badge.accent { background: rgba(232,163,60,.2); color: var(--gold-strong); }
   .badge.gold { background: rgba(232,163,60,.16); color: var(--gold-strong); }
+  .badge.craftable { background: rgba(92,184,116,.22); color: var(--green); border: 1px solid rgba(92,184,116,.35); }
   .badge.neutral { background: rgba(163,150,126,.14); color: var(--muted); }
 
   /* ---------- Tables ---------- */
@@ -885,6 +886,7 @@ function renderPalette(items) {
         <span class="muted">niv. ${i.level || 0}</span>
       </div>
       <span class="badge ${typeBadge(i.type)}">${esc(i.type || 'Item')}</span>
+      ${i.craftable ? '<span class="badge craftable" title="Cet item est craftable">🔨 Craftable</span>' : ''}
       ${paletteMode ? '' : `
       <div class="palette-act">
         <button class="btn tiny secondary" data-act="inventaire" title="Ajouter à l'inventaire">📦</button>

@@ -193,48 +193,92 @@ async function fetchRecipe(itemId) {
   return recipe;
 }
 
-async function searchRecipesLocal(q, limit = 20) {
+async function searchRecipesLocal(q, limit = 20, type = '') {
   // Recherche dans les recettes de craft scrappées (table dofus_recipes)
+  // Enrichie avec l'image et le vrai type depuis dofus_items (si disponible)
+  // Si un type est précisé, on filtre pour ne mélanger que des items du même type
   const { rows } = await pool.query(
-    `SELECT result_id AS id, result_name AS name, result_level AS level
-     FROM dofus_recipes
-     WHERE lower(result_name) LIKE $1
-     ORDER BY result_level ASC
+    `SELECT r.result_id AS id, r.result_name AS name, r.result_level AS level,
+            COALESCE(i.img_url, '') AS img_url,
+            COALESCE(i.type, '') AS type
+     FROM dofus_recipes r
+     LEFT JOIN dofus_items i ON i.id = r.result_id
+     WHERE lower(r.result_name) LIKE $1
+       ${type ? ` AND i.type = $3` : ''}
+     ORDER BY r.result_level ASC
      LIMIT $2`,
-    [`%${q.toLowerCase()}%`, limit]
+    type ? [`%${q.toLowerCase()}%`, limit, type] : [`%${q.toLowerCase()}%`, limit]
   );
-  return rows.map(r => ({ ...r, type: 'Recette', img_url: '' }));
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    level: r.level,
+    type: r.type || 'Recette',
+    img_url: r.img_url || ''
+  }));
 }
 
 async function searchDofusDB(query, type = '', limit = 50) {
-  // 1) Recherche locale d'abord (base d'items scrappée)
-  const local = await searchLocalItems(query, limit, type);
-  if (local.length > 0) {
-    return local.map(r => ({ id: r.id, name: r.name, level: r.level, type: r.type, img_url: r.img_url }));
+  // 1) Recherche en parallèle : items locaux + recettes de craft
+  const [local, recettes] = await Promise.all([
+    searchLocalItems(query, limit, type),
+    searchRecipesLocal(query, limit * 2, type)
+  ]);
+
+  // 2) Fusion : priorité aux items craftables (présents dans dofus_recipes),
+  //    puis aux équipements, puis par niveau croissant.
+  const seen = new Set();
+  const merged = [];
+
+  // Les recettes d'abord — ce sont les items à crafter
+  for (const r of recettes) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    merged.push({ ...r, craftable: true });
   }
 
-  // 2) Si la base items est vide, cherche dans les recettes scrappées
-  //    (table dofus_recipes) — permet à la Farm List de fonctionner
-  //    même avant la fin du scraping des items.
-  const recettes = await searchRecipesLocal(query, limit);
-  if (recettes.length > 0) return recettes;
+  // Ensuite les items locaux restants (ressources, consommables…)
+  for (const r of local) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    merged.push({ ...r });
+  }
 
-  // 3) Fallback API en direct (format $limit/$skip DofusDB)
+  // Tri intelligent : craftable > équipement/arme/bouclier > niveau
+  merged.sort((a, b) => {
+    const craftA = a.craftable ? 1 : 0;
+    const craftB = b.craftable ? 1 : 0;
+    if (craftA !== craftB) return craftB - craftA;
+    const eqA = /(équip|equip|arme|bouclier)/i.test(a.type || '') ? 1 : 0;
+    const eqB = /(équip|equip|arme|bouclier)/i.test(b.type || '') ? 1 : 0;
+    if (eqA !== eqB) return eqB - eqA;
+    return (a.level || 0) - (b.level || 0);
+  });
+
+  if (merged.length > 0) return merged.slice(0, limit);
+
+  // 3) Fallback API en direct (si base items ET recettes sont vides)
   try {
-    const url = `https://api.dofusdb.fr/items?search[name]=${encodeURIComponent(query)}&lang=fr&$limit=8`;
+    const url = `https://api.dofusdb.fr/items?search[name]=${encodeURIComponent(query)}&lang=fr&$limit=12`;
     const json = await fetchJson(url);
-    return (json.data || []).map(i => {
-      if (!itemCache.has(i.id)) {
-        itemCache.set(i.id, { name: (i.name && i.name.fr) ? i.name.fr : 'Inconnu', level: i.level || 0 });
-      }
-      return {
-        id: i.id,
-        name: (i.name && i.name.fr) ? i.name.fr : 'Inconnu',
-        level: i.level || 0,
-        type: itemTypeName(i),
-        img_url: i.imgUrl || ''
-      };
-    });
+    return (json.data || [])
+      .filter(i => {
+        // Ne remonte pas les monstres/sorts/montures de l'API
+        const t = itemTypeName(i);
+        return !isNonItemType(t);
+      })
+      .map(i => {
+        if (!itemCache.has(i.id)) {
+          itemCache.set(i.id, { name: (i.name && i.name.fr) ? i.name.fr : 'Inconnu', level: i.level || 0 });
+        }
+        return {
+          id: i.id,
+          name: (i.name && i.name.fr) ? i.name.fr : 'Inconnu',
+          level: i.level || 0,
+          type: itemTypeName(i),
+          img_url: i.imgUrl || ''
+        };
+      });
   } catch (e) {
     console.error('⚠️ Fallback API DofusDB échoué:', e.message);
     return [];
@@ -487,9 +531,10 @@ async function searchLocalItems(q, limit = 20, type = '') {
        AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 3)).join(',')}))
        ${typeFilter}
      ORDER BY CASE
-       WHEN type = 'Ressource' THEN 0
-       WHEN type IN ('Consommable','Équipement','Equipement','Arme','Bouclier','Parcho','Trophée') THEN 1
-       ELSE 2 END,
+       WHEN type IN ('Équipement','Equipement','Arme','Bouclier','Trophée') THEN 0
+       WHEN type IN ('Consommable','Parcho') THEN 1
+       WHEN type = 'Ressource' THEN 2
+       ELSE 3 END,
        level ASC
      LIMIT $2`,
     params
