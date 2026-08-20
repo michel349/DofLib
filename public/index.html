@@ -5,37 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DofLib — Gestionnaire Dofus</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito+Sans:wght@300;400;600;700;800&display=swap');
 
   :root {
-    --bg: #0a0a14;
-    --bg2: #12121f;
-    --card: #17172b;
-    --border: #26263e;
-    --text: #eceaf7;
-    --muted: #8a88a3;
-    --accent: #6d5cff;
-    --accent2: #b394ff;
-    --accent3: #4adede;
-    --success: #2ecc71;
-    --danger: #ff5470;
-    --warning: #ffb84d;
-    --info: #4db8ff;
-    --glow: rgba(109, 92, 255, 0.45);
-    --glow2: rgba(74, 222, 222, 0.15);
-    --card-grad: linear-gradient(160deg, rgba(109,92,255,0.08), transparent 40%);
+    --bg: #14110c;
+    --bg2: #1d1913;
+    --card: #241f17;
+    --card-hover: #2b251c;
+    --border: #3c3427;
+    --border-soft: rgba(60, 52, 39, .55);
+    --text: #f0e9dc;
+    --muted: #a3967e;
+    --gold: #e8a33c;
+    --gold-strong: #f5b84e;
+    --gold-dark: #b97a1f;
+    --green: #5cb874;
+    --red: #d4574f;
+    --blue: #5a9fd4;
+    --accent2: #f0e9dc;
+    --shadow: 0 8px 24px rgba(0,0,0,.4);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  ::selection { background: rgba(109,92,255,0.4); }
+  ::selection { background: rgba(232,163,60,.35); }
 
   body {
-    font-family: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
     background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(109,92,255,0.12), transparent 60%),
-      radial-gradient(900px 500px at -10% 20%, rgba(74,222,222,0.07), transparent 55%),
-      radial-gradient(700px 500px at 50% 110%, rgba(255,184,77,0.05), transparent 60%),
+      radial-gradient(1000px 500px at 85% -10%, rgba(232,163,60,.07), transparent 60%),
+      radial-gradient(800px 450px at -10% 30%, rgba(92,184,116,.05), transparent 55%),
       var(--bg);
     background-attachment: fixed;
     color: var(--text);
@@ -47,10 +46,8 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-    background-size: 44px 44px;
+    opacity: .028;
+    background-image: repeating-linear-gradient(45deg, #fff 0 1px, transparent 1px 7px);
     z-index: 0;
   }
 
@@ -58,60 +55,79 @@
     position: sticky;
     top: 0;
     z-index: 60;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    background: rgba(14, 14, 27, 0.72);
-    border-bottom: 1px solid rgba(38, 38, 62, 0.6);
-    padding: 16px 24px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(24, 20, 14, .9);
+    border-bottom: 1px solid rgba(232,163,60,.22);
+    padding: 12px 20px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 14px;
     flex-wrap: wrap;
   }
 
-  header h1 {
-    font-size: 1.45rem;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2) 60%, var(--accent3));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 30px var(--glow);
+  .brand {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .brand span { color: var(--gold); }
+
+  .global-search {
+    flex: 1;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,0,0,.28);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .global-search:hover { border-color: var(--gold); background: rgba(0,0,0,.42); }
+  .global-search .gs-icon { font-size: 1rem; }
+  .global-search .gs-placeholder { color: var(--muted); flex: 1; font-size: .9rem; }
+  .global-search kbd {
+    background: #14110c;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: .72rem;
+    color: var(--muted);
+    font-family: inherit;
   }
 
-  nav {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-  }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
 
   nav button {
     background: transparent;
     border: 1px solid transparent;
     color: var(--muted);
-    padding: 8px 13px;
+    padding: 7px 12px;
     border-radius: 10px;
     cursor: pointer;
-    font-size: 0.84rem;
-    font-weight: 500;
+    font-size: .82rem;
+    font-weight: 600;
     font-family: inherit;
-    transition: all 0.22s ease;
+    transition: all .18s ease;
   }
-
   nav button:hover {
     color: var(--text);
-    border-color: rgba(109,92,255,0.4);
-    background: rgba(109,92,255,0.08);
-    transform: translateY(-1px);
+    border-color: rgba(232,163,60,.35);
+    background: rgba(232,163,60,.08);
   }
-
   nav button.active {
-    background: linear-gradient(135deg, var(--accent), #8b6dff);
-    color: #fff;
-    box-shadow: 0 4px 18px var(--glow), inset 0 1px 0 rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, var(--gold), var(--gold-strong));
+    color: #241f17;
     border-color: transparent;
+    box-shadow: 0 4px 14px rgba(232,163,60,.25);
   }
 
   main {
@@ -119,32 +135,28 @@
     z-index: 1;
     max-width: 1500px;
     margin: 0 auto;
-    padding: 28px 24px 48px;
+    padding: 28px 24px 60px;
   }
 
   .tab { display: none; }
-  .tab.active {
-    display: block;
-    animation: fadeUp 0.35s ease;
-  }
+  .tab.active { display: block; animation: fadeUp .28s ease; }
 
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* ---------- Cards ---------- */
   .card {
-    background: var(--card-grad), var(--card);
-    border: 1px solid var(--border);
+    background: var(--card);
+    border: 1px solid var(--border-soft);
     border-radius: 16px;
-    padding: 22px;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
-    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+    padding: 26px 30px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
     position: relative;
-    overflow: hidden;
+    transition: border-color .2s ease, transform .2s ease;
   }
-
   .card::before {
     content: '';
     position: absolute;
@@ -152,78 +164,84 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.35;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: .35;
+    border-radius: 16px 16px 0 0;
   }
-
-  .card:hover {
-    border-color: rgba(109,92,255,0.45);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 24px var(--glow2);
-    transform: translateY(-2px);
-  }
+  .card:hover { border-color: rgba(232,163,60,.3); transform: translateY(-1px); }
 
   .card h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 14px;
-    color: var(--accent2);
+    font-family: 'Fredoka', sans-serif;
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--gold-strong);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
 
-  @media (max-width: 800px) {
-    .grid-2 { grid-template-columns: 1fr; }
+  /* ---------- Icônes items ---------- */
+  .item-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: contain;
+    background: rgba(0,0,0,.35);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 4px;
   }
+  .list-item .item-icon { width: 52px; height: 52px; }
+  .item-icon.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--muted);
+  }
+  table .item-icon { width: 40px; height: 40px; }
 
+  /* ---------- Formulaires ---------- */
   input, select, textarea {
-    background: rgba(15, 15, 28, 0.85);
+    background: rgba(0,0,0,.28);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 10px 13px;
     border-radius: 10px;
-    font-size: 0.9rem;
+    font-size: .9rem;
     font-family: inherit;
     width: 100%;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color .2s ease, box-shadow .2s ease;
   }
-
   input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(109,92,255,0.15), 0 0 18px var(--glow2);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(232,163,60,.12);
   }
-
-  input::placeholder, textarea::placeholder { color: #5d5b75; }
-
+  input::placeholder, textarea::placeholder { color: #6e6350; }
   textarea { resize: vertical; min-height: 90px; }
 
+  /* ---------- Boutons ---------- */
   .btn {
-    background: linear-gradient(135deg, var(--accent), #8b6dff);
-    color: #fff;
+    background: linear-gradient(135deg, var(--gold), var(--gold-strong));
+    color: #241f17;
     border: none;
     padding: 10px 17px;
     border-radius: 10px;
     cursor: pointer;
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: .88rem;
+    font-weight: 800;
     font-family: inherit;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 16px rgba(109,92,255,0.3);
+    transition: all .18s ease;
+    box-shadow: 0 4px 14px rgba(232,163,60,.25);
   }
-  .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 22px rgba(109,92,255,0.45);
-    filter: brightness(1.08);
-  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 6px 20px rgba(232,163,60,.35); }
   .btn:active { transform: translateY(0); }
-  .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
   .btn.secondary {
     background: var(--bg2);
@@ -231,198 +249,261 @@
     color: var(--text);
     box-shadow: none;
   }
-  .btn.secondary:hover {
-    border-color: var(--accent);
-    box-shadow: 0 0 14px var(--glow2);
-  }
+  .btn.secondary:hover { border-color: var(--gold); }
 
   .btn.danger {
     background: transparent;
-    border: 1px solid rgba(255,84,112,0.5);
-    color: var(--danger);
+    border: 1px solid rgba(212,87,79,.5);
+    color: var(--red);
     box-shadow: none;
   }
-  .btn.danger:hover {
-    background: rgba(255,84,112,0.12);
-    box-shadow: 0 0 16px rgba(255,84,112,0.25);
+  .btn.danger:hover { background: rgba(212,87,79,.12); }
+
+  .btn.success {
+    background: linear-gradient(135deg, #3e8e5a, #5cb874);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(92,184,116,.25);
   }
 
-  .btn.small { padding: 6px 10px; font-size: 0.78rem; border-radius: 8px; }
+  .btn.tiny { padding: 5px 9px; font-size: .78rem; border-radius: 8px; box-shadow: none; }
+  .btn.small { padding: 6px 10px; font-size: .78rem; border-radius: 8px; }
 
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .row > * { flex: 0 1 auto; }
   .row .grow { flex: 1 1 180px; }
 
+  /* ---------- Listes ---------- */
   .list-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 11px 13px;
-    border: 1px solid var(--border);
+    gap: 14px;
+    padding: 13px 16px;
+    border: 1px solid var(--border-soft);
     border-radius: 12px;
-    margin-bottom: 8px;
-    background: rgba(18, 18, 31, 0.8);
+    margin-bottom: 9px;
+    background: rgba(0,0,0,.18);
     flex-wrap: wrap;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    transition: border-color .18s ease, background .18s ease;
   }
+  .list-item:hover { border-color: rgba(232,163,60,.35); background: rgba(0,0,0,.28); }
+  .list-item .name { flex: 1 1 180px; font-size: 1rem; }
+  .list-item .name strong { font-size: 1.02rem; }
 
-  .list-item:hover {
-    border-color: rgba(109,92,255,0.45);
-    background: rgba(23, 23, 43, 0.95);
-  }
+  .check { width: 20px; height: 20px; accent-color: var(--gold); cursor: pointer; }
 
-  .list-item .name { flex: 1 1 140px; }
-  .check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
-
-  .badge {
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-    letter-spacing: 0.2px;
-  }
-  .badge.success { background: rgba(46,204,113,0.15); color: var(--success); box-shadow: 0 0 12px rgba(46,204,113,0.12) inset; }
-  .badge.warning { background: rgba(255,184,77,0.15); color: var(--warning); box-shadow: 0 0 12px rgba(255,184,77,0.12) inset; }
-  .badge.danger { background: rgba(255,84,112,0.15); color: var(--danger); box-shadow: 0 0 12px rgba(255,84,112,0.12) inset; }
-  .badge.info { background: rgba(77,184,255,0.15); color: var(--info); box-shadow: 0 0 12px rgba(77,184,255,0.12) inset; }
-  .badge.accent { background: rgba(109,92,255,0.18); color: var(--accent2); box-shadow: 0 0 12px rgba(109,92,255,0.15) inset; }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.86rem;
-  }
-  th, td {
-    text-align: left;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.6px; }
-  tbody tr { transition: background 0.15s ease; }
-  tbody tr:hover { background: rgba(109,92,255,0.05); }
-
-  .muted { color: var(--muted); }
-  .success-text { color: var(--success); }
-  .danger-text { color: var(--danger); }
-
-  .search-box { position: relative; }
-
-  .result-item {
+  .pending-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s ease, padding-left 0.15s ease;
-    font-size: 0.95rem;
-  }
-  .result-item:hover { background: rgba(109,92,255,0.1); padding-left: 22px; }
-  .result-item img {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    object-fit: contain;
-    flex-shrink: 0;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
-  }
-  .result-item .result-type {
-    margin-left: auto;
-    flex-shrink: 0;
+    background: rgba(232,163,60,.1);
+    border: 1px dashed rgba(232,163,60,.4);
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-size: .9rem;
+    margin-bottom: 12px;
   }
 
-  .search-results {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: rgba(15, 15, 28, 0.97);
-    backdrop-filter: blur(8px);
-    max-height: 420px;
-    overflow-y: auto;
-    margin-top: 6px;
-    position: absolute;
-    z-index: 50;
-    left: 0;
-    right: 0;
+  /* ---------- Badges ---------- */
+  .badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: .73rem;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  .badge.success { background: rgba(92,184,116,.14); color: var(--green); }
+  .badge.warning { background: rgba(232,163,60,.14); color: var(--gold-strong); }
+  .badge.danger { background: rgba(212,87,79,.14); color: var(--red); }
+  .badge.info { background: rgba(90,159,212,.14); color: var(--blue); }
+  .badge.accent { background: rgba(232,163,60,.2); color: var(--gold-strong); }
+  .badge.gold { background: rgba(232,163,60,.16); color: var(--gold-strong); }
+  .badge.neutral { background: rgba(163,150,126,.14); color: var(--muted); }
+
+  /* ---------- Tables ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid var(--border-soft); }
+  th { color: var(--gold-dark); font-weight: 700; text-transform: uppercase; font-size: .72rem; letter-spacing: .6px; }
+  tbody tr { transition: background .12s ease; }
+  tbody tr:hover { background: rgba(232,163,60,.05); }
+  td { vertical-align: middle; }
+
+  .muted { color: var(--muted); }
+  .success-text { color: var(--green); }
+  .danger-text { color: var(--red); }
+
+  .statut-select { width: auto; padding: 5px 9px; font-size: .78rem; border-radius: 8px; }
+
+  /* ---------- Scrollbar ---------- */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #3a3128; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dark); }
+
+  /* ---------- Palette de recherche ---------- */
+  .palette-overlay {
     display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 8, 5, .72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 200;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 11vh;
   }
-  .search-results:not(:empty) { display: block; }
-  .search-results::-webkit-scrollbar { width: 8px; }
-  .search-results::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
-  .search-results {
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  .palette-overlay.show { display: flex; animation: fadeIn .16s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .palette {
+    width: min(660px, 94vw);
+    background: var(--card);
+    border: 1px solid rgba(232,163,60,.3);
+    border-radius: 16px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.65), 0 0 40px rgba(232,163,60,.06);
+    overflow: hidden;
+    animation: paletteIn .18s ease;
   }
 
+  @keyframes paletteIn {
+    from { opacity: 0; transform: translateY(-12px) scale(.99); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .palette-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .palette-input-wrap .gs-icon { font-size: 1.15rem; }
+  .palette-input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 8px 0;
+    font-size: 1.08rem;
+    font-weight: 600;
+  }
+  .palette-input:focus { border: none; box-shadow: none; }
+  .palette-input::placeholder { color: #6e6350; }
+
+  .palette-hint {
+    padding: 12px 18px;
+    font-size: .86rem;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .palette-results { max-height: 380px; overflow-y: auto; }
+
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(60,52,39,.45);
+    transition: background .12s ease;
+  }
+  .palette-item:hover { background: rgba(232,163,60,.09); }
+  .palette-item:last-child { border-bottom: none; }
+
+  .palette-img {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    object-fit: contain;
+    background: rgba(0,0,0,.35);
+    border: 1px solid var(--border);
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .palette-img.ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: var(--muted);
+  }
+
+  .palette-info { flex: 1; min-width: 0; }
+  .palette-info strong { font-size: .95rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .palette-info .muted { font-size: .78rem; }
+
+  .palette-act { display: flex; gap: 5px; flex-shrink: 0; }
+
+  /* ---------- Modale ---------- */
   .modal-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(6, 6, 12, 0.68);
-    backdrop-filter: blur(4px);
+    background: rgba(10, 8, 5, .72);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     z-index: 100;
     align-items: center;
     justify-content: center;
   }
-  .modal-overlay.show {
-    display: flex;
-    animation: fadeIn 0.2s ease;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+  .modal-overlay.show { display: flex; animation: fadeIn .16s ease; }
 
   .modal {
-    background: var(--card-grad), var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 26px;
+    background: var(--card);
+    border: 1px solid rgba(232,163,60,.3);
+    border-radius: 14px;
+    padding: 24px;
     width: 90%;
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 30px var(--glow2);
-    animation: modalIn 0.25s ease;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    animation: paletteIn .2s ease;
   }
+  .modal h2 { margin-bottom: 15px; color: var(--gold-strong); font-family: 'Fredoka', sans-serif; font-size: 1.1rem; }
 
-  @keyframes modalIn {
-    from { opacity: 0; transform: scale(0.96) translateY(8px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed;
+    bottom: 26px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2a231b;
+    border: 1px solid var(--gold);
+    color: var(--text);
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: .9rem;
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transition: all .25s ease;
+    box-shadow: 0 12px 34px rgba(0,0,0,.55);
   }
-
-  .modal h2 { margin-bottom: 16px; color: var(--accent2); }
-
-  .statut-select {
-    width: auto;
-    padding: 5px 9px;
-    font-size: 0.78rem;
-    border-radius: 8px;
-  }
-
-  ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb {
-    background: #2c2c4a;
-    border-radius: 10px;
-    border: 2px solid var(--bg);
-  }
-  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   @media (max-width: 700px) {
-    main { padding: 14px 12px 32px; }
-    header { padding: 12px 14px; }
+    main { padding: 14px 12px 40px; }
+    header { padding: 10px 12px; }
+    .global-search { max-width: none; order: 3; width: 100%; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🎮 DofLib</h1>
+  <div class="brand">🍃 Dof<span>Lib</span></div>
+  <div class="global-search" onclick="openPalette()">
+    <span class="gs-icon">🔍</span>
+    <span class="gs-placeholder">Rechercher un item, un équipement…</span>
+    <kbd>Ctrl K</kbd>
+  </div>
   <nav>
     <button class="active" data-tab="farm">🧺 Farm List</button>
-    <button data-tab="suivi">📋 Suivi items</button>
+    <button data-tab="suivi">📋 Suivi</button>
     <button data-tab="objectifs">🎯 Objectifs</button>
     <button data-tab="prix">🪙 Prix HDV</button>
     <button data-tab="brouillons">📝 Brouillons</button>
@@ -437,26 +518,18 @@
   <section id="tab-farm" class="tab active">
     <div class="card">
       <h2>🧺 Items à craft</h2>
-      <div id="farmItemsList"></div>
-    </div>
-
-    <div class="card">
-      <h2>➕ Ajouter un item à craft</h2>
-      <div class="row">
-        <div class="search-box grow">
-          <input type="text" id="farmSearchInput" placeholder="Rechercher un item DofusDB...">
-          <div class="search-results" id="farmSearchResults"></div>
-        </div>
-        <input type="number" id="farmQty" value="1" min="1" style="width:80px;">
-        <button class="btn" onclick="addFarmItemFromSearch()">Ajouter</button>
+      <div class="row" style="margin-bottom:14px;">
+        <button class="btn" onclick="openPalette('farm')">➕ Ajouter un item à craft</button>
+        <input type="number" id="farmQty" value="1" min="1" style="width:80px;" title="Quantité">
       </div>
+      <div id="farmItemsList"></div>
     </div>
 
     <div class="card">
       <h2>⚙️ Générer la farm list</h2>
       <div class="row">
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;">
-          <input type="checkbox" id="useInventory" checked> Soustraire l'inventaire
+        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;">
+          <input type="checkbox" id="useInventory" checked style="width:auto;"> Soustraire l'inventaire
         </label>
         <button class="btn" id="generateBtn" onclick="generateFarm()">🔨 Générer la liste de farm</button>
       </div>
@@ -464,20 +537,21 @@
     </div>
   </section>
 
-  <!-- ============ SUIVI ITEMS ============ -->
+  <!-- ============ SUIVI ============ -->
   <section id="tab-suivi" class="tab">
     <div class="card">
       <h2>➕ Ajouter un item au suivi</h2>
-      <div class="row" style="margin-bottom:12px;">
-        <div class="search-box grow">
-          <input type="text" id="suiviSearchInput" placeholder="Rechercher un item DofusDB..." autocomplete="off">
-          <div class="search-results" id="suiviSearchResults"></div>
-        </div>
-        <input type="number" id="suiviQty" value="1" min="1" style="width:80px;" placeholder="Qté">
+      <div id="suiviPending" style="display:none;" class="pending-item">
+        <span>Item : <strong id="suiviPendingName"></strong></span>
+        <button class="btn tiny secondary" onclick="openPalette('suivi')">Changer</button>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="openPalette('suivi')">🔍 Choisir un item</button>
+        <input type="number" id="suiviQty" value="1" min="1" style="width:80px;" title="Qté">
         <input type="text" id="suiviPerso" placeholder="Personnage" style="width:150px;" list="persoList">
         <datalist id="persoList"></datalist>
-        <input type="text" id="suiviCompte" placeholder="Compte (opt.)" style="width:140px;">
-        <select id="suiviStatut" style="width:130px;">
+        <input type="text" id="suiviCompte" placeholder="Compte (opt.)" style="width:130px;">
+        <select id="suiviStatut" style="width:125px;">
           <option value="a_farmer">🌾 À farmer</option>
           <option value="a_crafter">🔨 À crafter</option>
           <option value="en_cours">⚙️ En cours</option>
@@ -497,7 +571,7 @@
           <option value="en_cours">⚙️ En cours</option>
           <option value="fait">✅ Fait</option>
         </select>
-        <div class="muted" id="suiviCompteur" style="font-size:0.85rem;"></div>
+        <div class="muted" id="suiviCompteur" style="font-size:.85rem;"></div>
       </div>
       <div id="suiviList"></div>
     </div>
@@ -569,27 +643,23 @@
     <div class="card">
       <h2>📦 Inventaire</h2>
       <div class="row" style="margin-bottom:16px;">
-        <div class="search-box grow">
-          <input type="text" id="invSearchInput" placeholder="Rechercher un item DofusDB..." autocomplete="off">
-          <div class="search-results" id="invSearchResults"></div>
-        </div>
+        <button class="btn" onclick="openPalette('inventaire')">➕ Ajouter un item</button>
         <input type="number" id="invQty" value="0" min="0" style="width:90px;" placeholder="Qté">
-        <button class="btn" onclick="addInventaire()">Ajouter / Mettre à jour</button>
       </div>
       <div id="inventaireList"></div>
     </div>
 
-    <div class="card" style="border-color: rgba(255,184,77,0.35);">
+    <div class="card" style="border-color: rgba(232,163,60,.25);">
       <h2>📸 Mettre à jour l'inventaire par screenshot</h2>
-      <p class="muted" style="margin-bottom:12px;font-size:0.85rem;">
+      <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
         Prends un screenshot de ton inventaire en jeu (les quantités doivent être visibles, ex : <em>Bois de frêne (x12)</em>).
-        L'OCR détecte les items et les quantités automatiquement — une validation est proposée avant d'enregistrer.
+        L'OCR détecte les items et les quantités automatiquement — une validation avec images est proposée avant d'enregistrer.
       </p>
       <div class="row">
         <input type="file" id="invScreenshotInput" accept="image/*" style="max-width:350px;">
         <button class="btn secondary" id="ocrBtn" onclick="processInventoryScreenshot()" disabled>🔍 Analyser le screenshot</button>
       </div>
-      <div id="ocrProgress" class="muted" style="margin-top:10px;font-size:0.85rem;"></div>
+      <div id="ocrProgress" class="muted" style="margin-top:10px;font-size:.85rem;"></div>
       <div id="ocrResults" style="margin-top:12px;"></div>
     </div>
   </section>
@@ -601,9 +671,8 @@
   <div class="modal">
     <h2 id="stuffModalTitle">Modifier le stuff</h2>
     <input type="text" id="stuffModalName" placeholder="Nom du stuff" style="margin-bottom:12px;">
-    <div class="search-box" style="margin-bottom:12px;">
-      <input type="text" id="stuffSearchInput" placeholder="Ajouter un item au stuff..." autocomplete="off">
-      <div class="search-results" id="stuffSearchResults"></div>
+    <div class="row" style="margin-bottom:12px;">
+      <button class="btn" onclick="openPalette('stuff')">➕ Ajouter un item</button>
     </div>
     <div id="stuffModalItems"></div>
     <textarea id="stuffModalDesc" placeholder="Description (optionnel)" style="margin-top:12px;"></textarea>
@@ -611,6 +680,19 @@
       <button class="btn" onclick="saveStuffModal()">💾 Enregistrer</button>
       <button class="btn secondary" onclick="closeStuffModal()">Fermer</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ PALETTE DE RECHERCHE ============ -->
+<div class="palette-overlay" id="paletteOverlay">
+  <div class="palette">
+    <div class="palette-input-wrap">
+      <span class="gs-icon">🔍</span>
+      <input type="text" id="paletteInput" class="palette-input" placeholder="Tape le nom d'un item... (2 lettres min)">
+      <button class="btn tiny secondary" onclick="closePalette()" style="flex-shrink:0;">ESC</button>
+    </div>
+    <div class="palette-hint" id="paletteHint">Recherche un item — clique pour ajouter à la Farm List, ou utilise les actions</div>
+    <div class="palette-results" id="paletteResults"></div>
   </div>
 </div>
 
@@ -646,130 +728,235 @@ function formatNumber(n) {
   return Number(n || 0).toLocaleString('fr-FR');
 }
 
-// ============================================================
-//  NAVIGATION ONGLETS
-// ============================================================
+let toastTimer;
+function showToast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function typeBadge(type) {
+  const t = (type || '').toLowerCase();
+  if (t.includes('ressource')) return 'success';
+  if (t.includes('arme') || t.includes('bouclier')) return 'danger';
+  if (t.includes('équip') || t.includes('equip')) return 'gold';
+  if (t.includes('consomm') || t.includes('parcho')) return 'info';
+  if (t.includes('trophée') || t.includes('trophee')) return 'accent';
+  return 'neutral';
+}
+
+function itemIconHtml(imgUrl, name) {
+  if (imgUrl) return `<img class="item-icon" src="${esc(imgUrl)}" alt="" loading="lazy">`;
+  return `<span class="item-icon placeholder">🎒</span>`;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 document.querySelectorAll('nav button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-  });
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
 // ============================================================
-//  RECHERCHE DOFUSDB (partagée)
+//  PALETTE DE RECHERCHE GLOBALE (Ctrl+K)
 // ============================================================
-function bindSearch(inputId, resultsId, onSelect) {
-  const input = document.getElementById(inputId);
-  const results = document.getElementById(resultsId);
-  let timer = null;
+const paletteOverlay = document.getElementById('paletteOverlay');
+const paletteInput = document.getElementById('paletteInput');
+const paletteResults = document.getElementById('paletteResults');
+const paletteHint = document.getElementById('paletteHint');
 
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    const q = input.value.trim();
-    if (q.length < 2) { results.innerHTML = ''; return; }
-    timer = setTimeout(async () => {
-      try {
-        const items = await api('/api/search?q=' + encodeURIComponent(q));
-        results.innerHTML = items.length
-          ? items.map(i => `
-              <div class="result-item" data-id="${i.id}" data-name="${esc(i.name)}">
-                ${i.img_url ? `<img src="${esc(i.img_url)}">` : ''}
-                <span class="result-main">
-                  <strong>${esc(i.name)}</strong>
-                  <span class="muted">(niv. ${i.level})</span>
-                </span>
-                ${i.type ? `<span class="badge info result-type">${esc(i.type)}</span>` : ''}
-              </div>
-            `).join('')
-          : '<div class="result-item muted">Aucun résultat</div>';
-      } catch (e) {
-        results.innerHTML = '<div class="result-item danger-text">Erreur: ' + esc(e.message) + '</div>';
-      }
-    }, 300);
-  });
+let paletteMode = null; // null | 'farm' | 'suivi' | 'inventaire' | 'stuff'
+let paletteSearchTimer = null;
 
-  // Sélection au clic — délégation d'événement, ne casse pas avec les
-  // apostrophes/guillemets dans les noms d'items (ex: Pain de seigle, Dofus "Doré")
-  results.addEventListener('click', (e) => {
-    const el = e.target.closest('.result-item');
-    if (!el) return;
-    const id = parseInt(el.dataset.id);
-    const name = el.dataset.name;
-    if (isNaN(id) || !name) return;
-    window[onSelect](id, name);
-  });
+const PALETTE_HINTS = {
+  farm: '🧺 Ajout à la Farm List — clique un item pour l\'ajouter',
+  inventaire: '📦 Ajout à l\'Inventaire — clique un item pour l\'ajouter',
+  suivi: '📋 Ajout au Suivi — clique un item puis complète la fiche',
+  stuff: '🎒 Ajout au Stuff — clique un item pour l\'ajouter au stuff ouvert',
+  null: 'Recherche un item — clique pour ajouter à la Farm List, ou utilise 📦 📋 🎒'
+};
 
-  document.addEventListener('click', (e) => {
-    if (!input.contains(e.target) && !results.contains(e.target)) results.innerHTML = '';
-  });
+function openPalette(mode = null) {
+  paletteMode = mode;
+  paletteOverlay.classList.add('show');
+  paletteInput.value = '';
+  paletteResults.innerHTML = '';
+  paletteHint.textContent = PALETTE_HINTS[mode] || PALETTE_HINTS.null;
+  setTimeout(() => paletteInput.focus(), 60);
+}
+
+function closePalette() {
+  paletteOverlay.classList.remove('show');
+  paletteInput.value = '';
+  paletteResults.innerHTML = '';
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+  if (e.key === 'Escape') closePalette();
+});
+
+paletteOverlay.addEventListener('click', e => {
+  if (e.target === paletteOverlay) closePalette();
+});
+
+paletteInput.addEventListener('input', () => {
+  clearTimeout(paletteSearchTimer);
+  const q = paletteInput.value.trim();
+  if (q.length < 2) { paletteResults.innerHTML = ''; return; }
+  paletteResults.innerHTML = '<div class="palette-hint">Recherche en cours…</div>';
+  paletteSearchTimer = setTimeout(async () => {
+    try {
+      const items = await api('/api/search?q=' + encodeURIComponent(q));
+      renderPalette(items);
+    } catch (e) {
+      paletteResults.innerHTML = '<div class="palette-hint">❌ ' + esc(e.message) + '</div>';
+    }
+  }, 220);
+});
+
+function renderPalette(items) {
+  if (!items.length) {
+    paletteResults.innerHTML = '<div class="palette-hint">Aucun item trouvé 😕</div>';
+    return;
+  }
+  paletteResults.innerHTML = items.map(i => `
+    <div class="palette-item"
+         data-id="${i.id}"
+         data-name="${esc(i.name)}"
+         data-img="${esc(i.img_url || '')}">
+      ${i.img_url
+        ? `<img class="palette-img" src="${esc(i.img_url)}" loading="lazy">`
+        : '<div class="palette-img ph">🎒</div>'}
+      <div class="palette-info">
+        <strong>${esc(i.name)}</strong>
+        <span class="muted">niv. ${i.level || 0}</span>
+      </div>
+      <span class="badge ${typeBadge(i.type)}">${esc(i.type || 'Item')}</span>
+      ${paletteMode ? '' : `
+      <div class="palette-act">
+        <button class="btn tiny secondary" data-act="inventaire" title="Ajouter à l'inventaire">📦</button>
+        <button class="btn tiny secondary" data-act="suivi" title="Ajouter au suivi">📋</button>
+        <button class="btn tiny secondary" data-act="stuff" title="Ajouter à un stuff">🎒</button>
+      </div>`}
+    </div>
+  `).join('');
+}
+
+paletteResults.addEventListener('click', e => {
+  const actBtn = e.target.closest('[data-act]');
+  const row = e.target.closest('.palette-item');
+  if (!row) return;
+  const id = parseInt(row.dataset.id);
+  const name = row.dataset.name;
+  const img = row.dataset.img || '';
+  if (isNaN(id) || !name) return;
+
+  if (actBtn) {
+    const act = actBtn.dataset.act;
+    if (act === 'inventaire') doAddInventaire(id, name, img);
+    else if (act === 'suivi') doAddSuivi(id, name, img);
+    else if (act === 'stuff') doAddStuff(id, name);
+    return;
+  }
+
+  if (paletteMode === 'farm') doAddFarm(id, name, img);
+  else if (paletteMode === 'inventaire') doAddInventaire(id, name, img);
+  else if (paletteMode === 'suivi') doAddSuivi(id, name, img);
+  else if (paletteMode === 'stuff') doAddStuff(id, name);
+  else doAddFarm(id, name, img);
+});
+
+async function doAddFarm(id, name, img) {
+  const qty = parseInt(document.getElementById('farmQty').value) || 1;
+  try {
+    await api('/api/farm-items', { method: 'POST', body: { item_id: id, item_name: name, quantite: qty, img_url: img } });
+    closePalette();
+    showToast('🧺 Ajouté à la Farm List');
+    await loadFarmItems();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function doAddInventaire(id, name, img) {
+  const qty = parseInt(document.getElementById('invQty').value) || 0;
+  try {
+    await api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty, img_url: img } });
+    closePalette();
+    showToast('📦 Inventaire mis à jour');
+    await loadInventaire();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+function doAddSuivi(id, name, img) {
+  closePalette();
+  switchTab('suivi');
+  selectedSuiviItem = { id, name, img_url: img };
+  const p = document.getElementById('suiviPending');
+  document.getElementById('suiviPendingName').textContent = name;
+  p.style.display = 'flex';
+  document.getElementById('suiviPerso').focus();
+  showToast('📋 Complète l\'ajout au suivi');
+}
+
+function doAddStuff(id, name) {
+  const modal = document.getElementById('stuffModal');
+  if (!modal.classList.contains('show')) {
+    closePalette();
+    switchTab('stuffs');
+    showToast('Ouvre d\'abord un stuff (✏️ Modifier)');
+    return;
+  }
+  if (stuffItems.some(i => i.id === id)) {
+    showToast('Déjà dans le stuff');
+    return;
+  }
+  stuffItems.push({ id, name });
+  renderStuffModalItems();
+  closePalette();
+  showToast('🎒 Ajouté au stuff');
 }
 
 // ============================================================
 //  FARM LIST
 // ============================================================
 let currentFarmItems = [];
-let selectedFarmItem = null;
 
 async function loadFarmItems() {
   try {
     currentFarmItems = await api('/api/farm-items');
     renderFarmItems();
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderFarmItems() {
   const list = document.getElementById('farmItemsList');
   if (!currentFarmItems.length) {
-    list.innerHTML = '<p class="muted">Aucun item à craft. Ajoute-en un ci-dessous !</p>';
+    list.innerHTML = '<p class="muted">Aucun item à craft. Clique sur "➕ Ajouter un item à craft".</p>';
     return;
   }
   list.innerHTML = currentFarmItems.map(item => `
     <div class="list-item">
-      <span class="name">${esc(item.item_name)}</span>
-      <span class="badge info">×${esc(item.quantite)}</span>
+      ${itemIconHtml(item.img_url, item.item_name)}
+      <span class="name">
+        <strong>${esc(item.item_name)}</strong>
+        <span class="badge info" style="margin-left:6px;">×${esc(item.quantite)}</span>
+      </span>
       <button class="btn danger small" onclick="deleteFarmItem(${item.id})">✕</button>
     </div>
   `).join('');
-}
-
-function selectFarmItem(id, name) {
-  selectedFarmItem = { id, name };
-  document.getElementById('farmSearchInput').value = name;
-  document.getElementById('farmSearchResults').innerHTML = '';
 }
 
 async function deleteFarmItem(id) {
   try {
     await api('/api/farm-items/' + id, { method: 'DELETE' });
     await loadFarmItems();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
-}
-
-async function addFarmItemFromSearch() {
-  if (!selectedFarmItem) {
-    alert('Recherche d\'abord un item dans la liste DofusDB.');
-    return;
-  }
-  const qte = parseInt(document.getElementById('farmQty').value) || 1;
-  try {
-    await api('/api/farm-items', {
-      method: 'POST',
-      body: { item_id: selectedFarmItem.id, item_name: selectedFarmItem.name, quantite: qte }
-    });
-    selectedFarmItem = null;
-    document.getElementById('farmSearchInput').value = '';
-    document.getElementById('farmQty').value = 1;
-    await loadFarmItems();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function generateFarm() {
@@ -783,16 +970,12 @@ async function generateFarm() {
   btn.textContent = '⏳ Calcul en cours...';
 
   try {
-    const data = await api('/api/generate-farm', {
-      method: 'POST',
-      body: { items: currentFarmItems, useInventory }
-    });
-
+    const data = await api('/api/generate-farm', { method: 'POST', body: { items: currentFarmItems, useInventory } });
     const container = document.getElementById('generatedList');
-    let html = '<h3 style="margin-bottom:12px;">📋 Ressources nécessaires</h3>';
+    let html = '<h3 style="margin-bottom:12px;color:var(--gold-strong);font-family:Fredoka,sans-serif;">📋 Ressources nécessaires</h3>';
 
     if (data.errors && data.errors.length) {
-      html += `<div class="card" style="border-color:var(--danger);">
+      html += `<div class="card" style="border-color:var(--red);">
         <h2>⚠️ Erreurs de récupération</h2>
         ${data.errors.map(e => `<p class="danger-text" style="margin-bottom:4px;">• ${esc(e)}</p>`).join('')}
       </div>`;
@@ -819,7 +1002,7 @@ async function generateFarm() {
     container.innerHTML = html;
   } catch (e) {
     document.getElementById('generatedList').innerHTML =
-      `<div class="card" style="border-color:var(--danger);"><h2>❌ Erreur</h2><p class="danger-text">${esc(e.message)}</p></div>`;
+      `<div class="card" style="border-color:var(--red);"><h2>❌ Erreur</h2><p class="danger-text">${esc(e.message)}</p></div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '🔨 Générer la liste de farm';
@@ -835,7 +1018,7 @@ let selectedSuiviItem = null;
 const STATUT_LABELS = {
   a_farmer:  { label: '🌾 À farmer',  badge: 'warning' },
   a_crafter: { label: '🔨 À crafter', badge: 'info' },
-  en_cours:  { label: '⚙️ En cours',  badge: 'accent' },
+  en_cours:  { label: '⚙️ En cours',  badge: 'gold' },
   fait:      { label: '✅ Fait',       badge: 'success' }
 };
 
@@ -843,9 +1026,7 @@ async function loadSuivi() {
   try {
     currentSuivi = await api('/api/attributions');
     renderSuivi();
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function getSuiviFiltered() {
@@ -855,13 +1036,11 @@ function getSuiviFiltered() {
 }
 
 function renderSuivi() {
-  // Remplit le datalist des personnages existants
   const persos = [...new Set(currentSuivi.map(s => s.personnage).filter(Boolean))];
   document.getElementById('persoList').innerHTML = persos.map(p => `<option value="${esc(p)}">`).join('');
 
   const filtered = getSuiviFiltered();
   const container = document.getElementById('suiviList');
-
   const compteur = document.getElementById('suiviCompteur');
   const faits = filtered.filter(s => s.statut === 'fait').length;
   compteur.textContent = `${filtered.length} item(s) — ${faits} fait(s)`;
@@ -875,16 +1054,16 @@ function renderSuivi() {
     const st = STATUT_LABELS[s.statut] || STATUT_LABELS.a_farmer;
     return `
       <div class="list-item">
+        ${itemIconHtml(s.img_url, s.item_name)}
         <span class="name">
           <strong>${esc(s.item_name)}</strong>
           <span class="muted">×${esc(s.quantite)}</span>
-          <span class="muted" style="display:block;font-size:0.75rem;">
+          <span class="muted" style="display:block;font-size:.75rem;">
             👤 ${esc(s.personnage)}${s.compte ? ` · ${esc(s.compte)}` : ''}
           </span>
         </span>
         <span class="badge ${st.badge}">${st.label}</span>
-        <select class="statut-select"
-                onchange="updateSuiviStatut(${s.id}, this.value)">
+        <select class="statut-select" onchange="updateSuiviStatut(${s.id}, this.value)">
           ${Object.entries(STATUT_LABELS).map(([val, info]) =>
             `<option value="${val}" ${s.statut === val ? 'selected' : ''}>${info.label}</option>`
           ).join('')}
@@ -895,15 +1074,9 @@ function renderSuivi() {
   }).join('');
 }
 
-function selectSuiviItem(id, name) {
-  selectedSuiviItem = { id, name };
-  document.getElementById('suiviSearchInput').value = name;
-  document.getElementById('suiviSearchResults').innerHTML = '';
-}
-
 async function addSuiviItem() {
   if (!selectedSuiviItem) {
-    alert('Recherche d\'abord un item dans la liste DofusDB.');
+    alert('Choisis d\'abord un item avec la recherche.');
     return;
   }
   const quantite = parseInt(document.getElementById('suiviQty').value) || 1;
@@ -917,17 +1090,20 @@ async function addSuiviItem() {
   try {
     await api('/api/attributions', {
       method: 'POST',
-      body: { item_name: selectedSuiviItem.name, personnage, compte, quantite, statut }
+      body: {
+        item_name: selectedSuiviItem.name,
+        personnage, compte, quantite, statut,
+        img_url: selectedSuiviItem.img_url || ''
+      }
     });
     selectedSuiviItem = null;
-    document.getElementById('suiviSearchInput').value = '';
+    document.getElementById('suiviPending').style.display = 'none';
     document.getElementById('suiviQty').value = 1;
     document.getElementById('suiviCompte').value = '';
     document.getElementById('suiviStatut').value = 'a_farmer';
+    showToast('📋 Ajouté au suivi');
     await loadSuivi();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function updateSuiviStatut(id, statut) {
@@ -937,26 +1113,20 @@ async function updateSuiviStatut(id, statut) {
     await api('/api/attributions/' + id, {
       method: 'PUT',
       body: {
-        item_name: item.item_name,
-        personnage: item.personnage,
-        compte: item.compte || '',
-        quantite: item.quantite,
-        statut: statut
+        item_name: item.item_name, personnage: item.personnage,
+        compte: item.compte || '', quantite: item.quantite, statut,
+        img_url: item.img_url || ''
       }
     });
     await loadSuivi();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function deleteSuiviItem(id) {
   try {
     await api('/api/attributions/' + id, { method: 'DELETE' });
     await loadSuivi();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 document.getElementById('suiviFiltre').addEventListener('change', renderSuivi);
@@ -968,9 +1138,7 @@ async function loadObjectifs() {
   try {
     const list = await api('/api/objectifs');
     renderObjectifs(list);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderObjectifs(list) {
@@ -1012,9 +1180,7 @@ async function addObjectif() {
     document.getElementById('objQty').value = 1;
     document.getElementById('objDeadline').value = '';
     await loadObjectifs();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function toggleObjectif(id, done) {
@@ -1024,27 +1190,17 @@ async function toggleObjectif(id, done) {
     if (!obj) return;
     await api('/api/objectifs/' + id, {
       method: 'PUT',
-      body: {
-        titre: obj.titre,
-        description: obj.description,
-        quantite: obj.quantite,
-        deadline: obj.deadline,
-        statut: done ? 'fait' : 'a_faire'
-      }
+      body: { titre: obj.titre, description: obj.description, quantite: obj.quantite, deadline: obj.deadline, statut: done ? 'fait' : 'a_faire' }
     });
     await loadObjectifs();
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 async function deleteObjectif(id) {
   try {
     await api('/api/objectifs/' + id, { method: 'DELETE' });
     await loadObjectifs();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 // ============================================================
@@ -1054,9 +1210,7 @@ async function loadPrix() {
   try {
     const list = await api('/api/prix');
     renderPrix(list);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderPrix(list) {
@@ -1092,18 +1246,14 @@ async function addPrix() {
     document.getElementById('prixValue').value = '';
     document.getElementById('prixQty').value = 1;
     await loadPrix();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function deletePrix(id) {
   try {
     await api('/api/prix/' + id, { method: 'DELETE' });
     await loadPrix();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 // ============================================================
@@ -1115,9 +1265,7 @@ async function loadBrouillons() {
   try {
     const list = await api('/api/brouillons');
     renderBrouillons(list);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderBrouillons(list) {
@@ -1131,7 +1279,7 @@ function renderBrouillons(list) {
       <div style="flex:1;">
         <strong>${esc(b.titre)}</strong>
         <p class="muted" style="margin-top:4px;white-space:pre-wrap;">${esc(b.contenu).slice(0, 200)}${b.contenu.length > 200 ? '...' : ''}</p>
-        <p class="muted" style="font-size:0.75rem;margin-top:4px;">Modifié : ${formatDate(b.updatedAt)}</p>
+        <p class="muted" style="font-size:.75rem;margin-top:4px;">Modifié : ${formatDate(b.updatedAt)}</p>
       </div>
       <div class="row">
         <button class="btn secondary small" onclick="editBrouillon(${b.id})">✏️</button>
@@ -1149,18 +1297,14 @@ async function addBrouillon() {
     document.getElementById('brTitre').value = '';
     document.getElementById('brContenu').value = '';
     await loadBrouillons();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function deleteBrouillon(id) {
   try {
     await api('/api/brouillons/' + id, { method: 'DELETE' });
     await loadBrouillons();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function editBrouillon(id) {
@@ -1176,19 +1320,14 @@ async function editBrouillon(id) {
     const titre = document.getElementById('brTitre').value.trim() || 'Sans titre';
     const contenu = document.getElementById('brContenu').value;
     try {
-      await api('/api/brouillons/' + editingBrouillonId, {
-        method: 'PUT',
-        body: { titre, contenu }
-      });
+      await api('/api/brouillons/' + editingBrouillonId, { method: 'PUT', body: { titre, contenu } });
       document.getElementById('brTitre').value = '';
       document.getElementById('brContenu').value = '';
       editingBrouillonId = null;
       btn.textContent = 'Enregistrer';
       btn.onclick = addBrouillon;
       await loadBrouillons();
-    } catch (e) {
-      alert('Erreur: ' + e.message);
-    }
+    } catch (e) { alert('Erreur: ' + e.message); }
   };
 }
 
@@ -1203,9 +1342,7 @@ async function loadStuffs() {
   try {
     currentStuffs = await api('/api/stuffs');
     renderStuffs();
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderStuffs() {
@@ -1232,9 +1369,7 @@ async function addStuff() {
     await api('/api/stuffs', { method: 'POST', body: { nom } });
     document.getElementById('stuffName').value = '';
     await loadStuffs();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function deleteStuff(id) {
@@ -1242,9 +1377,7 @@ async function deleteStuff(id) {
   try {
     await api('/api/stuffs/' + id, { method: 'DELETE' });
     await loadStuffs();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 async function openStuffModal(id) {
@@ -1256,8 +1389,6 @@ async function openStuffModal(id) {
   document.getElementById('stuffModalDesc').value = stuff.description || '';
   stuffItems = [...stuff.items];
   renderStuffModalItems();
-  document.getElementById('stuffSearchInput').value = '';
-  document.getElementById('stuffSearchResults').innerHTML = '';
   document.getElementById('stuffModal').classList.add('show');
 }
 
@@ -1270,7 +1401,7 @@ function closeStuffModal() {
 function renderStuffModalItems() {
   const container = document.getElementById('stuffModalItems');
   if (!stuffItems.length) {
-    container.innerHTML = '<p class="muted">Aucun item dans ce stuff.</p>';
+    container.innerHTML = '<p class="muted">Aucun item dans ce stuff. Clique sur "➕ Ajouter un item".</p>';
     return;
   }
   container.innerHTML = stuffItems.map((item, idx) => `
@@ -1279,17 +1410,6 @@ function renderStuffModalItems() {
       <button class="btn danger small" onclick="removeStuffItem(${idx})">✕</button>
     </div>
   `).join('');
-}
-
-function selectStuffItem(id, name) {
-  if (stuffItems.some(i => i.id === id)) {
-    alert('Cet item est déjà dans le stuff.');
-    return;
-  }
-  stuffItems.push({ id, name });
-  renderStuffModalItems();
-  document.getElementById('stuffSearchInput').value = '';
-  document.getElementById('stuffSearchResults').innerHTML = '';
 }
 
 function removeStuffItem(idx) {
@@ -1302,29 +1422,20 @@ async function saveStuffModal() {
   if (!nom) { alert('Nom requis.'); return; }
   const description = document.getElementById('stuffModalDesc').value;
   try {
-    await api('/api/stuffs/' + editingStuffId, {
-      method: 'PUT',
-      body: { nom, items: stuffItems, description }
-    });
+    await api('/api/stuffs/' + editingStuffId, { method: 'PUT', body: { nom, items: stuffItems, description } });
     closeStuffModal();
     await loadStuffs();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 // ============================================================
 //  INVENTAIRE
 // ============================================================
-let selectedInvItem = null;
-
 async function loadInventaire() {
   try {
     const list = await api('/api/inventaire');
     renderInventaire(list);
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function renderInventaire(list) {
@@ -1338,7 +1449,10 @@ function renderInventaire(list) {
     <tbody>
     ${list.map(i => `
       <tr>
-        <td>${esc(i.item_name)}</td>
+        <td style="white-space:nowrap;">
+          ${itemIconHtml(i.img_url, i.item_name)}
+          <span style="display:inline-block;margin-left:10px;vertical-align:middle;">${esc(i.item_name)}</span>
+        </td>
         <td>${formatNumber(i.quantite)}</td>
         <td><button class="btn danger small" onclick="deleteInventaire(${i.id})">✕</button></td>
       </tr>
@@ -1347,36 +1461,11 @@ function renderInventaire(list) {
   </table>`;
 }
 
-function selectInvItem(id, name) {
-  selectedInvItem = { id, name };
-  document.getElementById('invSearchInput').value = name;
-  document.getElementById('invSearchResults').innerHTML = '';
-}
-
-async function addInventaire() {
-  if (!selectedInvItem) {
-    alert('Recherche d\'abord un item dans la liste DofusDB.');
-    return;
-  }
-  const quantite = parseInt(document.getElementById('invQty').value) || 0;
-  try {
-    await api('/api/inventaire', { method: 'PUT', body: { item_name: selectedInvItem.name, quantite } });
-    selectedInvItem = null;
-    document.getElementById('invSearchInput').value = '';
-    document.getElementById('invQty').value = 0;
-    await loadInventaire();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
-}
-
 async function deleteInventaire(id) {
   try {
     await api('/api/inventaire/' + id, { method: 'DELETE' });
     await loadInventaire();
-  } catch (e) {
-    alert('Erreur: ' + e.message);
-  }
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 // ============================================================
@@ -1393,9 +1482,11 @@ invScreenshotInput.addEventListener('change', () => {
   ocrResults.innerHTML = '';
 });
 
-// Extrait les lignes « Nom (xN) » depuis le texte brut de l'OCR
+// Extrait les lignes « Nom (xN) » ou « Nom 12 » depuis le texte brut de l'OCR
 function parseInventoryLines(text) {
   const lines = [];
+
+  // Format 1 : « Nom (x12) »
   const regex = /(.{2,60}?)\s*\([x×X]\s*(\d[\d\s.,]*)\)/g;
   let m;
   while ((m = regex.exec(text)) !== null) {
@@ -1403,6 +1494,17 @@ function parseInventoryLines(text) {
     const qty = parseInt(m[2].replace(/[\s.,]/g, ''));
     if (name && qty > 0) lines.push({ name, qty });
   }
+
+  // Format 2 : ligne simple « Nom 12 »
+  if (!lines.length) {
+    const regex2 = /^([a-zA-ZÀ-ÿ'’\- ]{2,60}?)\s+(\d{1,6})\s*$/gm;
+    while ((m = regex2.exec(text)) !== null) {
+      const name = m[1].trim().replace(/[|_]/g, '');
+      const qty = parseInt(m[2].replace(/[\s.,]/g, ''));
+      if (name && qty > 0) lines.push({ name, qty });
+    }
+  }
+
   return lines;
 }
 
@@ -1438,37 +1540,62 @@ async function processInventoryScreenshot() {
     if (!parsed.length) {
       ocrProgress.textContent = '⚠️ Aucun item détecté. Assure-toi que les quantités s\'affichent bien (ex: "Bois de frêne (x12)").';
       ocrResults.innerHTML = `<details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
-        <pre style="white-space:pre-wrap;font-size:0.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>`;
+        <pre style="white-space:pre-wrap;font-size:.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>`;
       ocrBtn.textContent = '🔍 Analyser le screenshot';
       ocrBtn.disabled = false;
       return;
     }
 
-    ocrProgress.textContent = `✅ ${parsed.length} ligne(s) détectée(s) — vérifie avant d'enregistrer.`;
+    ocrProgress.textContent = `🔗 Correspondance avec DofusDB (${parsed.length} item(s))...`;
+    const { results } = await api('/api/ocr-resolve', {
+      method: 'POST',
+      body: { items: parsed.map(p => ({ name: p.name, qty: p.qty })) }
+    });
+
+    const matched = results.filter(r => r.matched);
+    const unmatched = results.filter(r => !r.matched);
+
+    ocrProgress.textContent = `✅ ${matched.length}/${results.length} item(s) reconnus. Vérifie avant d'enregistrer.`;
     ocrResults.innerHTML = `
-      <div class="card" style="margin-top:6px;border-color:rgba(46,204,113,0.4);">
-        <h2 style="color:var(--success);">✅ Validation</h2>
+      <div class="card" style="margin-top:6px;border-color:rgba(92,184,116,.4);">
+        <h2 style="color:var(--green);">✅ Validation</h2>
         <div class="row" style="margin-bottom:12px;">
           <button class="btn success" onclick="applyScreenshotInventory()">💾 Tout ajouter / mettre à jour</button>
           <button class="btn secondary" onclick="clearOcrResults()">Annuler</button>
         </div>
         <table>
-          <thead><tr><th>Item</th><th>Quantité</th></tr></thead>
+          <thead><tr><th>Item (image & nom officiel)</th><th>Quantité</th></tr></thead>
           <tbody>
-          ${parsed.map((p, idx) => `
-            <tr>
-              <td>${esc(p.name)} <span class="muted" style="font-size:0.75rem;">(vérifie le nom)</span></td>
-              <td><input type="number" id="ocrQty${idx}" value="${p.qty}" min="0" style="width:90px;"></td>
+          ${results.map((r, idx) => `
+            <tr style="${r.matched ? '' : 'background:rgba(212,87,79,.05);'}">
+              <td style="white-space:nowrap;">
+                ${r.img_url
+                  ? `<img class="item-icon" style="vertical-align:middle;" src="${esc(r.img_url)}" alt="">`
+                  : '<span class="item-icon placeholder" style="vertical-align:middle;">🎒</span>'}
+                <span style="display:inline-block;margin-left:10px;vertical-align:middle;">
+                  <strong>${esc(r.name)}</strong>
+                  ${r.matched
+                    ? '<span class="badge success" style="margin-left:6px;">✓ DofusDB</span>'
+                    : `<span class="badge danger" style="margin-left:6px;">⚠️ Non trouvé</span>
+                       <span class="muted" style="display:block;font-size:.75rem;">(OCR: ${esc(r.original)})</span>`}
+                </span>
+              </td>
+              <td><input type="number" id="ocrQty${idx}" value="${esc(r.qty)}" min="0" style="width:90px;"></td>
             </tr>
           `).join('')}
           </tbody>
         </table>
+        ${unmatched.length ? `
+          <p class="muted" style="margin-top:10px;font-size:.8rem;">
+            ⚠️ ${unmatched.length} item(s) non trouvé(s) : ${unmatched.map(u => esc(u.original)).join(', ')}.
+            Ils seront enregistrés tels quels — vérifie les noms.
+          </p>` : ''}
       </div>
       <details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
-        <pre style="white-space:pre-wrap;font-size:0.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>
+        <pre style="white-space:pre-wrap;font-size:.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>
     `;
 
-    window.__ocrParsed = parsed;
+    window.__ocrItems = results;
   } catch (e) {
     ocrProgress.textContent = '❌ Erreur: ' + e.message;
   } finally {
@@ -1480,12 +1607,12 @@ async function processInventoryScreenshot() {
 function clearOcrResults() {
   ocrResults.innerHTML = '';
   ocrProgress.textContent = '';
-  window.__ocrParsed = null;
+  window.__ocrItems = null;
 }
 
 async function applyScreenshotInventory() {
-  const parsed = window.__ocrParsed;
-  if (!parsed || !parsed.length) return;
+  const results = window.__ocrItems;
+  if (!results || !results.length) return;
 
   const btn = document.createElement('button');
   btn.className = 'btn';
@@ -1495,19 +1622,25 @@ async function applyScreenshotInventory() {
 
   try {
     let done = 0;
-    for (let i = 0; i < parsed.length; i++) {
-      const p = parsed[i];
+    const toSave = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
       const qtyInput = document.getElementById('ocrQty' + i);
-      const qty = qtyInput ? parseInt(qtyInput.value) || 0 : p.qty;
-      if (qty > 0) {
-        await api('/api/inventaire', { method: 'PUT', body: { item_name: p.name, quantite: qty } });
-      }
+      const qty = qtyInput ? parseInt(qtyInput.value) || 0 : r.qty;
+      if (qty > 0) toSave.push({ name: r.name, qty, img_url: r.img_url });
+    }
+
+    for (const item of toSave) {
+      await api('/api/inventaire', {
+        method: 'PUT',
+        body: { item_name: item.name, quantite: item.qty, img_url: item.img_url }
+      });
       done++;
-      ocrProgress.textContent = `💾 ${done}/${parsed.length} enregistré(s)...`;
+      ocrProgress.textContent = `💾 ${done}/${toSave.length} enregistré(s)...`;
     }
     ocrProgress.textContent = `✅ ${done} item(s) mis à jour !`;
     ocrResults.innerHTML = '';
-    window.__ocrParsed = null;
+    window.__ocrItems = null;
     invScreenshotInput.value = '';
     await loadInventaire();
   } catch (e) {
@@ -1519,11 +1652,6 @@ async function applyScreenshotInventory() {
 // ============================================================
 //  INITIALISATION
 // ============================================================
-bindSearch('farmSearchInput', 'farmSearchResults', 'selectFarmItem');
-bindSearch('stuffSearchInput', 'stuffSearchResults', 'selectStuffItem');
-bindSearch('suiviSearchInput', 'suiviSearchResults', 'selectSuiviItem');
-bindSearch('invSearchInput', 'invSearchResults', 'selectInvItem');
-
 loadFarmItems();
 loadSuivi();
 loadObjectifs();

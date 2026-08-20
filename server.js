@@ -65,13 +65,15 @@ const SCHEMA = `
     item_id INTEGER NOT NULL,
     item_name TEXT NOT NULL,
     quantite INTEGER NOT NULL,
+    img_url TEXT DEFAULT '',
     "createdAt" TIMESTAMPTZ DEFAULT now()
   );
 
   CREATE TABLE IF NOT EXISTS inventaire (
     id SERIAL PRIMARY KEY,
     item_name TEXT NOT NULL UNIQUE,
-    quantite INTEGER DEFAULT 0
+    quantite INTEGER DEFAULT 0,
+    img_url TEXT DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS attributions (
@@ -85,6 +87,7 @@ const SCHEMA = `
   );
 
   ALTER TABLE attributions ADD COLUMN IF NOT EXISTS statut TEXT DEFAULT 'a_farmer';
+  ALTER TABLE attributions ADD COLUMN IF NOT EXISTS img_url TEXT DEFAULT '';
 
   CREATE TABLE IF NOT EXISTS dofus_items (
     id INTEGER PRIMARY KEY,
@@ -416,14 +419,47 @@ async function startScrape(typeFilter) {
   return { started: true };
 }
 
+// Types DofusDB qui ne sont PAS des items craftables/farmables
+// (monstres, montures, sorts, etc.) — à exclure de la recherche
+const NON_ITEM_TYPES = [
+  'Monstre', 'Monture', 'Sort', 'Sort passif', 'Alignement', 'Défi',
+  'Zone de combat', 'Cérémonie', 'Célébration', 'Mutation', 'Bénédiction',
+  'Malédiction', 'Boost', 'État'
+];
+
+// Résout l'id et l'image d'un item à partir de son nom (table dofus_items)
+async function resolveItemMeta(name) {
+  if (!name) return {};
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, img_url FROM dofus_items
+       WHERE lower(name) = lower($1) LIMIT 1`,
+      [name]
+    );
+    if (rows.length) return { id: rows[0].id, name: rows[0].name, img_url: rows[0].img_url || '' };
+    const { rows: r2 } = await pool.query(
+      `SELECT id, name, img_url FROM dofus_items
+       WHERE lower(name) LIKE lower($1) LIMIT 1`,
+      ['%' + name + '%']
+    );
+    if (r2.length) return { id: r2[0].id, name: r2[0].name, img_url: r2[0].img_url || '' };
+  } catch (e) { /* ignore */ }
+  return {};
+}
+
 async function searchLocalItems(q, limit = 20) {
   const { rows } = await pool.query(
     `SELECT id, name, level, type, img_url
      FROM dofus_items
      WHERE lower(name) LIKE $1
-     ORDER BY level ASC
+       AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 3)).join(',')}))
+     ORDER BY CASE
+       WHEN type = 'Ressource' THEN 0
+       WHEN type IN ('Consommable','Équipement','Equipement','Arme','Bouclier','Parcho','Trophée') THEN 1
+       ELSE 2 END,
+       level ASC
      LIMIT $2`,
-    [`%${q.toLowerCase()}%`, limit]
+    [`%${q.toLowerCase()}%`, limit, ...NON_ITEM_TYPES]
   );
   return rows;
 }
@@ -724,18 +760,22 @@ app.get('/api/farm-items', asyncHandler(async (req, res) => {
 
 app.post('/api/farm-items', asyncHandler(async (req, res) => {
   const { item_id, item_name, quantite } = req.body;
+  const meta = await resolveItemMeta(item_name);
+  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    'INSERT INTO farm_items (item_id, item_name, quantite) VALUES ($1,$2,$3) RETURNING *',
-    [item_id, item_name, quantite]
+    'INSERT INTO farm_items (item_id, item_name, quantite, img_url) VALUES ($1,$2,$3,$4) RETURNING *',
+    [item_id, item_name, quantite, img_url || null]
   );
   res.json(rows[0]);
 }));
 
 app.put('/api/farm-items/:id', asyncHandler(async (req, res) => {
   const { item_id, item_name, quantite } = req.body;
+  const meta = await resolveItemMeta(item_name);
+  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    'UPDATE farm_items SET item_id=$1, item_name=$2, quantite=$3 WHERE id=$4 RETURNING *',
-    [item_id, item_name, quantite, req.params.id]
+    'UPDATE farm_items SET item_id=$1, item_name=$2, quantite=$3, img_url=$4 WHERE id=$5 RETURNING *',
+    [item_id, item_name, quantite, img_url || null, req.params.id]
   );
   res.json(rows[0]);
 }));
@@ -753,10 +793,12 @@ app.get('/api/inventaire', asyncHandler(async (req, res) => {
 
 app.put('/api/inventaire', asyncHandler(async (req, res) => {
   const { item_name, quantite } = req.body;
+  const meta = await resolveItemMeta(item_name);
+  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    `INSERT INTO inventaire (item_name, quantite) VALUES ($1,$2)
-     ON CONFLICT (item_name) DO UPDATE SET quantite=$2 RETURNING *`,
-    [item_name, quantite]
+    `INSERT INTO inventaire (item_name, quantite, img_url) VALUES ($1,$2,$3)
+     ON CONFLICT (item_name) DO UPDATE SET quantite=$2, img_url=COALESCE(NULLIF(EXCLUDED.img_url,''), inventaire.img_url) RETURNING *`,
+    [item_name, quantite, img_url || null]
   );
   res.json(rows[0]);
 }));
@@ -774,18 +816,22 @@ app.get('/api/attributions', asyncHandler(async (req, res) => {
 
 app.post('/api/attributions', asyncHandler(async (req, res) => {
   const { item_name, personnage, compte = '', quantite = 1, statut = 'a_farmer' } = req.body;
+  const meta = await resolveItemMeta(item_name);
+  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    'INSERT INTO attributions (item_name, personnage, compte, quantite, statut) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-    [item_name, personnage, compte, quantite, statut]
+    'INSERT INTO attributions (item_name, personnage, compte, quantite, statut, img_url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+    [item_name, personnage, compte, quantite, statut, img_url || null]
   );
   res.json(rows[0]);
 }));
 
 app.put('/api/attributions/:id', asyncHandler(async (req, res) => {
   const { item_name, personnage, compte, quantite, statut } = req.body;
+  const meta = await resolveItemMeta(item_name);
+  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    'UPDATE attributions SET item_name=$1, personnage=$2, compte=$3, quantite=$4, statut=$5 WHERE id=$6 RETURNING *',
-    [item_name, personnage, compte, quantite, statut, req.params.id]
+    'UPDATE attributions SET item_name=$1, personnage=$2, compte=$3, quantite=$4, statut=$5, img_url=$6 WHERE id=$7 RETURNING *',
+    [item_name, personnage, compte, quantite, statut, img_url || null, req.params.id]
   );
   res.json(rows[0]);
 }));
@@ -800,6 +846,28 @@ app.get('/api/search', asyncHandler(async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json([]);
   res.json(await searchDofusDB(q));
+}));
+
+// ---------- Résolution OCR → items DofusDB ----------
+// Reçoit [{name, qty}] (noms détectés par l'OCR) et renvoie pour chacun
+// la correspondance trouvée en base avec l'image officielle de l'item.
+app.post('/api/ocr-resolve', asyncHandler(async (req, res) => {
+  const { items } = req.body;
+  if (!items || !items.length) return res.json({ results: [] });
+
+  const results = [];
+  for (const it of items) {
+    const meta = await resolveItemMeta(it.name);
+    results.push({
+      original: it.name,
+      qty: it.qty || 0,
+      matched: Boolean(meta.id),
+      id: meta.id || null,
+      name: meta.name || it.name,
+      img_url: meta.img_url || ''
+    });
+  }
+  res.json({ results });
 }));
 
 // ---------- Scraping DofusDB ----------
