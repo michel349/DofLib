@@ -380,10 +380,16 @@ async function upsertItems(rows) {
   }
 }
 
-async function fetchItemsPage(skip) {
+async function fetchItemsPage(skip, typeFilter = null) {
   // L'API DofusDB utilise $limit/$skip (comme le script Google Sheets),
   // PAS page/limit — c'est pour ça que le scraping renvoyait 0 item.
-  const url = `https://api.dofusdb.fr/items?lang=fr&$limit=${PAGE_SIZE}&$skip=${skip}`;
+  // $sort=id est indispensable : sans tri stable, la pagination $skip
+  // peut sauter des items (surtout les équipements bas niveau comme Padgref)
+  // et le scraping s'arrête avant de les atteindre.
+  let url = `https://api.dofusdb.fr/items?lang=fr&$limit=${PAGE_SIZE}&$skip=${skip}&$sort=id`;
+  if (typeFilter) {
+    url += `&type.name.fr=${encodeURIComponent(typeFilter)}`;
+  }
   return await fetchJson(url);
 }
 
@@ -414,7 +420,7 @@ async function scrapeLoop(typeFilter) {
     }
     if (!skips.length) break;
 
-    const results = await Promise.allSettled(skips.map(s => fetchItemsPage(s)));
+    const results = await Promise.allSettled(skips.map(s => fetchItemsPage(s, typeFilter)));
 
     for (const r of results) {
       if (r.status === 'fulfilled' && r.value && Array.isArray(r.value.data)) {
