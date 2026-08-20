@@ -652,25 +652,13 @@
       <h2>📦 Inventaire</h2>
       <div class="row" style="margin-bottom:16px;">
         <button class="btn" onclick="openPalette('inventaire')">➕ Ajouter un item</button>
+        <input type="number" id="invQtyAdd" value="1" min="0" style="width:80px;" title="Quantité">
       </div>
       <div id="inventaireList"></div>
     </div>
   </section>
 
 </main>
-
-<!-- ============ MODALE QUANTITÉ (INVENTAIRE) ============ -->
-<div class="modal-overlay" id="invQtyModal">
-  <div class="modal" style="max-width:340px;text-align:center;">
-    <h2>📦 Quantité en stock</h2>
-    <div id="invQtyModalItem" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;justify-content:center;"></div>
-    <input type="number" id="invQtyInput" value="1" min="0" style="text-align:center;font-size:1.2rem;margin-bottom:14px;">
-    <div class="row" style="justify-content:center;">
-      <button class="btn" onclick="confirmAddInventaire()">💾 Enregistrer</button>
-      <button class="btn secondary" onclick="closeInvQtyModal()">Annuler</button>
-    </div>
-  </div>
-</div>
 
 <!-- ============ MODALE STUFF ============ -->
 <div class="modal-overlay" id="stuffModal">
@@ -915,32 +903,15 @@ async function doAddFarm(id, name, img) {
   } catch (e) { alert('Erreur: ' + e.message); }
 }
 
-let invQtyPending = null; // { id, name, img, existingId }
-
 function doAddInventaire(id, name, img) {
-  invQtyPending = { id, name, img, existingId: null };
-  document.getElementById('invQtyModalItem').innerHTML =
-    (img ? `<img class="item-icon" src="${esc(img)}" alt="">` : '<span class="item-icon placeholder">🎒</span>') +
-    `<strong style="font-size:1.05rem;">${esc(name)}</strong>`;
-  document.getElementById('invQtyInput').value = 1;
-  document.getElementById('invQtyModal').classList.add('show');
-}
-
-function closeInvQtyModal() {
-  document.getElementById('invQtyModal').classList.remove('show');
-  invQtyPending = null;
-}
-
-async function confirmAddInventaire() {
-  if (!invQtyPending) return;
-  const qty = parseInt(document.getElementById('invQtyInput').value) || 0;
-  try {
-    await api('/api/inventaire', { method: 'PUT', body: { item_name: invQtyPending.name, quantite: qty, img_url: invQtyPending.img } });
-    closeInvQtyModal();
-    closePalette();
-    showToast('📦 Inventaire mis à jour');
-    await loadInventaire();
-  } catch (e) { alert('Erreur: ' + e.message); }
+  const qty = parseInt(document.getElementById('invQtyAdd').value) || 0;
+  api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty } })
+    .then(() => {
+      closePalette();
+      showToast('📦 Ajouté à l\'inventaire');
+      loadInventaire();
+    })
+    .catch(e => alert('Erreur: ' + e.message));
 }
 
 function doAddSuivi(id, name, img) {
@@ -1499,13 +1470,10 @@ function renderInventaire(list) {
     <tbody>
     ${list.map(i => `
       <tr>
-        <td style="white-space:nowrap;">
-          ${itemIconHtml(i.img_url, i.item_name)}
-          <span style="display:inline-block;margin-left:10px;vertical-align:middle;">${esc(i.item_name)}</span>
-        </td>
+        <td>${esc(i.item_name)}</td>
         <td>
           <input type="number" class="inv-qty-input" value="${i.quantite}" min="0"
-                 data-id="${i.id}" data-name="${esc(i.item_name)}" data-img="${esc(i.img_url || '')}"
+                 data-id="${i.id}" data-name="${esc(i.item_name)}"
                  onchange="updateInventaireQty(this)">
         </td>
         <td><button class="btn danger small" onclick="deleteInventaire(${i.id})">✕</button></td>
@@ -1516,12 +1484,10 @@ function renderInventaire(list) {
 }
 
 async function updateInventaireQty(input) {
-  const id = parseInt(input.dataset.id);
   const name = input.dataset.name;
-  const img = input.dataset.img || '';
   const qty = parseInt(input.value) || 0;
   try {
-    await api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty, img_url: img } });
+    await api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty } });
     showToast('📦 Quantité mise à jour');
   } catch (e) {
     alert('Erreur: ' + e.message);

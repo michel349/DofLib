@@ -72,9 +72,10 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS inventaire (
     id SERIAL PRIMARY KEY,
     item_name TEXT NOT NULL UNIQUE,
-    quantite INTEGER DEFAULT 0,
-    img_url TEXT DEFAULT ''
+    quantite INTEGER DEFAULT 0
   );
+
+  ALTER TABLE inventaire DROP COLUMN IF EXISTS img_url;
 
   CREATE TABLE IF NOT EXISTS attributions (
     id SERIAL PRIMARY KEY,
@@ -800,12 +801,10 @@ app.get('/api/inventaire', asyncHandler(async (req, res) => {
 
 app.put('/api/inventaire', asyncHandler(async (req, res) => {
   const { item_name, quantite } = req.body;
-  const meta = await resolveItemMeta(item_name);
-  const img_url = req.body.img_url || meta.img_url || '';
   const { rows } = await pool.query(
-    `INSERT INTO inventaire (item_name, quantite, img_url) VALUES ($1,$2,$3)
-     ON CONFLICT (item_name) DO UPDATE SET quantite=$2, img_url=COALESCE(NULLIF(EXCLUDED.img_url,''), inventaire.img_url) RETURNING *`,
-    [item_name, quantite, img_url || null]
+    `INSERT INTO inventaire (item_name, quantite) VALUES ($1,$2)
+     ON CONFLICT (item_name) DO UPDATE SET quantite=$2 RETURNING *`,
+    [item_name, quantite]
   );
   res.json(rows[0]);
 }));
