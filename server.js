@@ -205,9 +205,9 @@ async function searchRecipesLocal(q, limit = 20) {
   return rows.map(r => ({ ...r, type: 'Recette', img_url: '' }));
 }
 
-async function searchDofusDB(query) {
+async function searchDofusDB(query, type = '', limit = 50) {
   // 1) Recherche locale d'abord (base d'items scrappée)
-  const local = await searchLocalItems(query, 20);
+  const local = await searchLocalItems(query, limit, type);
   if (local.length > 0) {
     return local.map(r => ({ id: r.id, name: r.name, level: r.level, type: r.type, img_url: r.img_url }));
   }
@@ -215,7 +215,7 @@ async function searchDofusDB(query) {
   // 2) Si la base items est vide, cherche dans les recettes scrappées
   //    (table dofus_recipes) — permet à la Farm List de fonctionner
   //    même avant la fin du scraping des items.
-  const recettes = await searchRecipesLocal(query, 20);
+  const recettes = await searchRecipesLocal(query, limit);
   if (recettes.length > 0) return recettes;
 
   // 3) Fallback API en direct (format $limit/$skip DofusDB)
@@ -447,19 +447,26 @@ async function resolveItemMeta(name) {
   return {};
 }
 
-async function searchLocalItems(q, limit = 20) {
+async function searchLocalItems(q, limit = 20, type = '') {
+  const params = [`%${q.toLowerCase()}%`, limit, ...NON_ITEM_TYPES];
+  let typeFilter = '';
+  if (type) {
+    params.push(type);
+    typeFilter = ' AND type = $' + params.length;
+  }
   const { rows } = await pool.query(
     `SELECT id, name, level, type, img_url
      FROM dofus_items
      WHERE lower(name) LIKE $1
        AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 3)).join(',')}))
+       ${typeFilter}
      ORDER BY CASE
        WHEN type = 'Ressource' THEN 0
        WHEN type IN ('Consommable','Équipement','Equipement','Arme','Bouclier','Parcho','Trophée') THEN 1
        ELSE 2 END,
        level ASC
      LIMIT $2`,
-    [`%${q.toLowerCase()}%`, limit, ...NON_ITEM_TYPES]
+    params
   );
   return rows;
 }
@@ -845,7 +852,23 @@ app.delete('/api/attributions/:id', asyncHandler(async (req, res) => {
 app.get('/api/search', asyncHandler(async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json([]);
-  res.json(await searchDofusDB(q));
+  const type = req.query.type || '';
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  res.json(await searchDofusDB(q, type, limit));
+}));
+
+// Liste des types d'items présents en base (pour le filtre de la palette)
+app.get('/api/item-types', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT type, COUNT(*)::int AS count
+     FROM dofus_items
+     WHERE type != ''
+       AND type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 1)).join(',')})
+     GROUP BY type
+     ORDER BY count DESC`,
+    NON_ITEM_TYPES
+  );
+  res.json(rows);
 }));
 
 // ---------- Résolution OCR → items DofusDB ----------
@@ -985,17 +1008,19 @@ initDb().then(async () => {
     console.log(`🚀 DofLib démarré sur le port ${PORT}`);
   });
 
-  // Scraping automatique au premier démarrage (si la base d'items est vide)
+  // Scraping automatique au premier démarrage (si la base est incomplète)
+  // Le scraping a une reprise automatique : les items déjà en base sont
+  // sautés, donc pas de double téléchargement.
   try {
     const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM dofus_items');
-    if (rows[0].count === 0) {
-      console.log('🔄 Base d\'items vide → lancement du scraping DofusDB complet…');
+    if (rows[0].count < 10000) {
+      console.log(`🔄 Base d'items incomplète (${rows[0].count}/~20000) → scraping de reprise lancé…`);
       await startScrape(null);
     } else {
-      console.log(`✅ ${rows[0].count} items déjà en base, scraping non nécessaire`);
+      console.log(`✅ ${rows[0].count} items en base, scraping non nécessaire`);
     }
   } catch (e) {
-    console.error('⚠️ Vérification items/sraping:', e.message);
+    console.error('⚠️ Vérification items/scraping:', e.message);
   }
 
   // Scraping automatique des recettes (si la table dofus_recipes est vide)

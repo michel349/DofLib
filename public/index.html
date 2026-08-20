@@ -691,6 +691,11 @@
       <input type="text" id="paletteInput" class="palette-input" placeholder="Tape le nom d'un item... (2 lettres min)">
       <button class="btn tiny secondary" onclick="closePalette()" style="flex-shrink:0;">ESC</button>
     </div>
+    <div style="padding:10px 18px 0;border-bottom:1px solid var(--border-soft);">
+      <select id="paletteType" style="width:auto;max-width:100%;">
+        <option value="">🎲 Tous les types</option>
+      </select>
+    </div>
     <div class="palette-hint" id="paletteHint">Recherche un item — clique pour ajouter à la Farm List, ou utilise les actions</div>
     <div class="palette-results" id="paletteResults"></div>
   </div>
@@ -770,9 +775,25 @@ const paletteOverlay = document.getElementById('paletteOverlay');
 const paletteInput = document.getElementById('paletteInput');
 const paletteResults = document.getElementById('paletteResults');
 const paletteHint = document.getElementById('paletteHint');
+const paletteType = document.getElementById('paletteType');
 
 let paletteMode = null; // null | 'farm' | 'suivi' | 'inventaire' | 'stuff'
 let paletteSearchTimer = null;
+let paletteTypesLoaded = false;
+
+// Chargement des types d'items (filtre de la palette)
+async function loadPaletteTypes() {
+  try {
+    const types = await api('/api/item-types');
+    const select = paletteType;
+    select.innerHTML = '<option value="">🎲 Tous les types</option>' +
+      types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    paletteTypesLoaded = true;
+  } catch (e) {
+    console.warn('Types non chargés:', e.message);
+  }
+}
+loadPaletteTypes();
 
 const PALETTE_HINTS = {
   farm: '🧺 Ajout à la Farm List — clique un item pour l\'ajouter',
@@ -806,20 +827,25 @@ paletteOverlay.addEventListener('click', e => {
   if (e.target === paletteOverlay) closePalette();
 });
 
-paletteInput.addEventListener('input', () => {
+paletteInput.addEventListener('input', schedulePaletteSearch);
+paletteType.addEventListener('change', schedulePaletteSearch);
+
+function schedulePaletteSearch() {
   clearTimeout(paletteSearchTimer);
   const q = paletteInput.value.trim();
   if (q.length < 2) { paletteResults.innerHTML = ''; return; }
   paletteResults.innerHTML = '<div class="palette-hint">Recherche en cours…</div>';
   paletteSearchTimer = setTimeout(async () => {
     try {
-      const items = await api('/api/search?q=' + encodeURIComponent(q));
+      const type = paletteType.value;
+      const url = '/api/search?q=' + encodeURIComponent(q) + '&limit=30' + (type ? '&type=' + encodeURIComponent(type) : '');
+      const items = await api(url);
       renderPalette(items);
     } catch (e) {
       paletteResults.innerHTML = '<div class="palette-hint">❌ ' + esc(e.message) + '</div>';
     }
   }, 220);
-});
+}
 
 function renderPalette(items) {
   if (!items.length) {
