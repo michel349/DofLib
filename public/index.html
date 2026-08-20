@@ -517,6 +517,7 @@
     <button data-tab="brouillons">📝 Brouillons</button>
     <button data-tab="stuffs">🎒 Stuffs</button>
     <button data-tab="inventaire">📦 Inventaire</button>
+    <button data-tab="maintenance">⚙️ Maintenance</button>
   </nav>
 </header>
 
@@ -655,6 +656,31 @@
         <input type="number" id="invQtyAdd" value="1" min="0" style="width:80px;" title="Quantité">
       </div>
       <div id="inventaireList"></div>
+    </div>
+  </section>
+
+  <!-- ============ MAINTENANCE ============ -->
+  <section id="tab-maintenance" class="tab">
+    <div class="card">
+      <h2>⚙️ Maintenance de la base d'items</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        La base <code>dofus_items</code> peut contenir des éléments inutiles (monstres, sorts, montures…)
+        récupérés depuis l'API DofusDB. Utilise le nettoyage pour ne garder que les items réellement farmables.
+      </p>
+      <div id="maintenanceStats" style="margin-bottom:16px;">
+        <p class="muted">Chargement des statistiques…</p>
+      </div>
+      <div class="row">
+        <button class="btn danger" id="cleanBtn" onclick="cleanItemsBase()">🧹 Nettoyer la base</button>
+        <span class="muted" id="cleanStatus" style="font-size:.85rem;"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Types présents en base</h2>
+      <div id="maintenanceTypes" style="max-height:380px;overflow-y:auto;">
+        <p class="muted">Chargement…</p>
+      </div>
     </div>
   </section>
 
@@ -1450,6 +1476,85 @@ async function saveStuffModal() {
 }
 
 // ============================================================
+//  MAINTENANCE
+// ============================================================
+async function loadMaintenanceStats() {
+  const statsEl = document.getElementById('maintenanceStats');
+  const typesEl = document.getElementById('maintenanceTypes');
+  const cleanBtn = document.getElementById('cleanBtn');
+  try {
+    const stats = await api('/api/items/stats');
+
+    // Carte de statistiques
+    const total = stats.total || 0;
+    const utiles = stats.utiles || 0;
+    const nonUtiles = stats.non_utiles || 0;
+    const sansType = stats.sans_type || 0;
+
+    statsEl.innerHTML = `
+      <div class="row" style="margin-bottom:8px;">
+        <span class="badge neutral">📊 Total : <strong>${formatNumber(total)}</strong> items</span>
+        <span class="badge success">✅ Utiles : <strong>${formatNumber(utiles)}</strong></span>
+        <span class="badge danger">🗑️ Non-utiles : <strong>${formatNumber(nonUtiles)}</strong></span>
+        <span class="badge warning">⚠️ Sans type : <strong>${formatNumber(sansType)}</strong></span>
+      </div>
+      <p class="muted" style="font-size:.82rem;">
+        ${nonUtiles + sansType > 0
+          ? `Il y a <strong class="danger-text">${formatNumber(nonUtiles + sansType)}</strong> éléments inutiles à supprimer (${formatNumber(nonUtiles)} non-items + ${formatNumber(sansType)} sans type).`
+          : 'La base est propre, aucun élément inutile détecté.'}
+      </p>
+    `;
+
+    // Bouton nettoyage
+    cleanBtn.disabled = (nonUtiles + sansType) === 0;
+    cleanBtn.title = cleanBtn.disabled ? 'Base déjà propre' : 'Supprime les éléments non-utiles';
+
+    // Graphique des types
+    const types = stats.byType || [];
+    if (!types.length) {
+      typesEl.innerHTML = '<p class="muted">Aucun type enregistré.</p>';
+    } else {
+      const max = Math.max(...types.map(t => t.count));
+      typesEl.innerHTML = types.map(t => {
+        const pct = Math.round((t.count / max) * 100);
+        const isNonItem = /(monstre|monture|sort|alignement|défi|ceremony|celebration|mutation|bénédiction|malédiction|boost|état|etat|compagnon|dopeul|crâ|protecteur|bonta|brakmar|orbe|emote|pnj|npc|monster|mount|spell|alignment|challenge|battle zone|blessing|curse|state|companion|protector)/i.test(t.type);
+        return `
+          <div style="margin-bottom:6px;">
+            <div class="row" style="margin-bottom:2px;">
+              <span style="flex:1;font-size:.85rem;">${esc(t.type || '(sans type)')}</span>
+              <span class="badge ${isNonItem ? 'danger' : 'neutral'}">${formatNumber(t.count)} items</span>
+            </div>
+            <div style="background:rgba(0,0,0,.35);border-radius:6px;height:8px;overflow:hidden;">
+              <div style="height:100%;background:${isNonItem ? 'var(--red)' : 'var(--gold)'};width:${pct}%;border-radius:6px;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (e) {
+    statsEl.innerHTML = `<p class="muted">❌ Erreur de chargement : ${esc(e.message)}</p>`;
+  }
+}
+
+async function cleanItemsBase() {
+  const cleanBtn = document.getElementById('cleanBtn');
+  const statusEl = document.getElementById('cleanStatus');
+  if (!confirm('⚠️ Supprimer définitivement tous les éléments non-utiles de la base ?\n\nÇa supprimera : monstres, sorts, montures, défis, etc.\nLes items farmables seront conservés.')) return;
+  cleanBtn.disabled = true;
+  statusEl.textContent = '⏳ Nettoyage en cours…';
+  try {
+    const res = await api('/api/items/clean', { method: 'POST' });
+    statusEl.textContent = res.message || '✅ Nettoyage terminé';
+    showToast('🧹 Base nettoyée : ' + (res.deleted || 0) + ' éléments supprimés');
+    await loadMaintenanceStats();
+    await loadPaletteTypes();
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+    cleanBtn.disabled = false;
+  }
+}
+
+// ============================================================
 //  INVENTAIRE
 // ============================================================
 async function loadInventaire() {
@@ -1512,6 +1617,7 @@ loadPrix();
 loadBrouillons();
 loadStuffs();
 loadInventaire();
+loadMaintenanceStats();
 </script>
 </body>
 </html>

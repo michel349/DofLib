@@ -298,6 +298,16 @@ function buildItemRow(i) {
   };
 }
 
+// Un item est "utile" si son type n'est pas un non-item (monstre, sort, etc.)
+// et s'il a un nom exploitable.
+function isUsefulItem(i) {
+  const type = itemTypeName(i);
+  if (isNonItemType(type)) return false;
+  const names = i.name || {};
+  const name = names.fr || names.en || names.de || '';
+  return name !== '' && name !== 'Inconnu';
+}
+
 async function upsertItems(rows) {
   if (!rows.length) return;
   const client = await pool.connect();
@@ -366,7 +376,7 @@ async function scrapeLoop(typeFilter) {
       if (r.status === 'fulfilled' && r.value && Array.isArray(r.value.data)) {
         total = r.value.total || total;
         consecutiveErrors = 0;
-        const rows = r.value.data.filter(i => !processedIds.has(i.id)).map(buildItemRow);
+        const rows = r.value.data.filter(i => !processedIds.has(i.id) && isUsefulItem(i)).map(buildItemRow);
         rows.forEach(i => processedIds.add(i.id));
         if (rows.length) {
           await upsertItems(rows);
@@ -421,12 +431,27 @@ async function startScrape(typeFilter) {
 }
 
 // Types DofusDB qui ne sont PAS des items craftables/farmables
-// (monstres, montures, sorts, etc.) — à exclure de la recherche
+// (monstres, montures, sorts, etc.) — à exclure de la recherche,
+// du scraping ET à supprimer lors du nettoyage de la base.
 const NON_ITEM_TYPES = [
+  // Français
   'Monstre', 'Monture', 'Sort', 'Sort passif', 'Alignement', 'Défi',
   'Zone de combat', 'Cérémonie', 'Célébration', 'Mutation', 'Bénédiction',
-  'Malédiction', 'Boost', 'État'
+  'Malédiction', 'Boost', 'État',
+  // Équivalents anglais DofusDB
+  'Monster', 'Mount', 'Spell', 'Passive spell', 'Alignment', 'Challenge',
+  'Battle zone', 'Ceremony', 'Celebration', 'Blessing', 'Curse', 'State',
+  // Types non-farmables supplémentaires
+  'Compagnon', 'Companion', 'Dopeul', 'Crâ', 'Protecteur', 'Protector',
+  'Bonta', 'Brakmar', 'Orbe', 'Emote', 'PNJ', 'NPC'
 ];
+
+// Vérifie si un type d'item est un "non-item" (monstre, sort, etc.)
+function isNonItemType(type) {
+  if (!type) return false;
+  const t = String(type).toLowerCase().trim();
+  return NON_ITEM_TYPES.some(x => x.toLowerCase() === t);
+}
 
 // Résout l'id et l'image d'un item à partir de son nom (table dofus_items)
 async function resolveItemMeta(name) {
@@ -868,6 +893,45 @@ app.get('/api/item-types', asyncHandler(async (req, res) => {
     NON_ITEM_TYPES
   );
   res.json(rows);
+}));
+
+// ---------- Statistiques & Nettoyage de la base items ----------
+app.get('/api/items/stats', asyncHandler(async (req, res) => {
+  const n = NON_ITEM_TYPES.length;
+  const inParams = NON_ITEM_TYPES.map((_, i) => '$' + (i + 1)).join(',');
+  const notInParams = NON_ITEM_TYPES.map((_, i) => '$' + (i + 1 + n)).join(',');
+  const { rows } = await pool.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE type = '' OR type IS NULL)::int AS sans_type,
+       COUNT(*) FILTER (WHERE lower(type) IN (${inParams}))::int AS non_utiles,
+       COUNT(*) FILTER (WHERE lower(type) NOT IN (${notInParams}) AND type != '')::int AS utiles
+     FROM dofus_items`,
+    [...NON_ITEM_TYPES, ...NON_ITEM_TYPES]
+  );
+  const byType = await pool.query(
+    `SELECT type, COUNT(*)::int AS count
+     FROM dofus_items
+     WHERE type != ''
+     GROUP BY type
+     ORDER BY count DESC
+     LIMIT 30`
+  );
+  res.json({ ...rows[0], byType: byType.rows });
+}));
+
+// Nettoyage : supprime les non-items (monstres, sorts, montures…) déjà en base
+app.post('/api/items/clean', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    `DELETE FROM dofus_items
+     WHERE type = ''
+        OR lower(type) IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 1)).join(',')})
+     RETURNING id`,
+    NON_ITEM_TYPES
+  );
+  // Recalcule aussi les items restants dans le cache mémoire
+  itemCache.clear();
+  res.json({ deleted: rows.length, message: `${rows.length} items non-utiles supprimés` });
 }));
 
 // ---------- Scraping DofusDB ----------
