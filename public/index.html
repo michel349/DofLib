@@ -117,7 +117,7 @@
   main {
     position: relative;
     z-index: 1;
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 28px 24px 48px;
   }
@@ -309,25 +309,48 @@
   .search-box { position: relative; }
 
   .result-item {
-    padding: 10px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
     transition: background 0.15s ease, padding-left 0.15s ease;
+    font-size: 0.95rem;
   }
-  .result-item:hover { background: rgba(109,92,255,0.1); padding-left: 17px; }
+  .result-item:hover { background: rgba(109,92,255,0.1); padding-left: 22px; }
+  .result-item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+  }
+  .result-item .result-type {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
 
   .search-results {
     border: 1px solid var(--border);
     border-radius: 12px;
     background: rgba(15, 15, 28, 0.97);
     backdrop-filter: blur(8px);
-    max-height: 240px;
+    max-height: 420px;
     overflow-y: auto;
     margin-top: 6px;
     position: absolute;
     z-index: 50;
     left: 0;
     right: 0;
+    display: none;
+  }
+  .search-results:not(:empty) { display: block; }
+  .search-results::-webkit-scrollbar { width: 8px; }
+  .search-results::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  .search-results {
     box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   }
 
@@ -546,11 +569,28 @@
     <div class="card">
       <h2>📦 Inventaire</h2>
       <div class="row" style="margin-bottom:16px;">
-        <input class="grow" type="text" id="invName" placeholder="Nom de l'item...">
+        <div class="search-box grow">
+          <input type="text" id="invSearchInput" placeholder="Rechercher un item DofusDB..." autocomplete="off">
+          <div class="search-results" id="invSearchResults"></div>
+        </div>
         <input type="number" id="invQty" value="0" min="0" style="width:90px;" placeholder="Qté">
         <button class="btn" onclick="addInventaire()">Ajouter / Mettre à jour</button>
       </div>
       <div id="inventaireList"></div>
+    </div>
+
+    <div class="card" style="border-color: rgba(255,184,77,0.35);">
+      <h2>📸 Mettre à jour l'inventaire par screenshot</h2>
+      <p class="muted" style="margin-bottom:12px;font-size:0.85rem;">
+        Prends un screenshot de ton inventaire en jeu (les quantités doivent être visibles, ex : <em>Bois de frêne (x12)</em>).
+        L'OCR détecte les items et les quantités automatiquement — une validation est proposée avant d'enregistrer.
+      </p>
+      <div class="row">
+        <input type="file" id="invScreenshotInput" accept="image/*" style="max-width:350px;">
+        <button class="btn secondary" id="ocrBtn" onclick="processInventoryScreenshot()" disabled>🔍 Analyser le screenshot</button>
+      </div>
+      <div id="ocrProgress" class="muted" style="margin-top:10px;font-size:0.85rem;"></div>
+      <div id="ocrResults" style="margin-top:12px;"></div>
     </div>
   </section>
 
@@ -635,11 +675,13 @@ function bindSearch(inputId, resultsId, onSelect) {
         const items = await api('/api/search?q=' + encodeURIComponent(q));
         results.innerHTML = items.length
           ? items.map(i => `
-              <div class="result-item" onclick="${onSelect}(${i.id}, ${JSON.stringify(i.name)});">
-                ${i.img_url ? `<img src="${esc(i.img_url)}" style="width:24px;height:24px;vertical-align:middle;margin-right:6px;border-radius:4px;">` : ''}
-                <strong>${esc(i.name)}</strong>
-                <span class="muted">(niv. ${i.level})</span>
-                ${i.type ? `<span class="badge info" style="margin-left:6px;font-size:0.7rem;">${esc(i.type)}</span>` : ''}
+              <div class="result-item" data-id="${i.id}" data-name="${esc(i.name)}">
+                ${i.img_url ? `<img src="${esc(i.img_url)}">` : ''}
+                <span class="result-main">
+                  <strong>${esc(i.name)}</strong>
+                  <span class="muted">(niv. ${i.level})</span>
+                </span>
+                ${i.type ? `<span class="badge info result-type">${esc(i.type)}</span>` : ''}
               </div>
             `).join('')
           : '<div class="result-item muted">Aucun résultat</div>';
@@ -647,6 +689,17 @@ function bindSearch(inputId, resultsId, onSelect) {
         results.innerHTML = '<div class="result-item danger-text">Erreur: ' + esc(e.message) + '</div>';
       }
     }, 300);
+  });
+
+  // Sélection au clic — délégation d'événement, ne casse pas avec les
+  // apostrophes/guillemets dans les noms d'items (ex: Pain de seigle, Dofus "Doré")
+  results.addEventListener('click', (e) => {
+    const el = e.target.closest('.result-item');
+    if (!el) return;
+    const id = parseInt(el.dataset.id);
+    const name = el.dataset.name;
+    if (isNaN(id) || !name) return;
+    window[onSelect](id, name);
   });
 
   document.addEventListener('click', (e) => {
@@ -1263,6 +1316,8 @@ async function saveStuffModal() {
 // ============================================================
 //  INVENTAIRE
 // ============================================================
+let selectedInvItem = null;
+
 async function loadInventaire() {
   try {
     const list = await api('/api/inventaire');
@@ -1292,13 +1347,22 @@ function renderInventaire(list) {
   </table>`;
 }
 
+function selectInvItem(id, name) {
+  selectedInvItem = { id, name };
+  document.getElementById('invSearchInput').value = name;
+  document.getElementById('invSearchResults').innerHTML = '';
+}
+
 async function addInventaire() {
-  const item_name = document.getElementById('invName').value.trim();
-  if (!item_name) { alert('Nom requis.'); return; }
+  if (!selectedInvItem) {
+    alert('Recherche d\'abord un item dans la liste DofusDB.');
+    return;
+  }
   const quantite = parseInt(document.getElementById('invQty').value) || 0;
   try {
-    await api('/api/inventaire', { method: 'PUT', body: { item_name, quantite } });
-    document.getElementById('invName').value = '';
+    await api('/api/inventaire', { method: 'PUT', body: { item_name: selectedInvItem.name, quantite } });
+    selectedInvItem = null;
+    document.getElementById('invSearchInput').value = '';
     document.getElementById('invQty').value = 0;
     await loadInventaire();
   } catch (e) {
@@ -1316,11 +1380,149 @@ async function deleteInventaire(id) {
 }
 
 // ============================================================
+//  SCREENSHOT → OCR INVENTAIRE
+// ============================================================
+const invScreenshotInput = document.getElementById('invScreenshotInput');
+const ocrBtn = document.getElementById('ocrBtn');
+const ocrProgress = document.getElementById('ocrProgress');
+const ocrResults = document.getElementById('ocrResults');
+
+invScreenshotInput.addEventListener('change', () => {
+  ocrBtn.disabled = !invScreenshotInput.files.length;
+  ocrProgress.textContent = '';
+  ocrResults.innerHTML = '';
+});
+
+// Extrait les lignes « Nom (xN) » depuis le texte brut de l'OCR
+function parseInventoryLines(text) {
+  const lines = [];
+  const regex = /(.{2,60}?)\s*\([x×X]\s*(\d[\d\s.,]*)\)/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    const name = m[1].trim().replace(/[|_]/g, '');
+    const qty = parseInt(m[2].replace(/[\s.,]/g, ''));
+    if (name && qty > 0) lines.push({ name, qty });
+  }
+  return lines;
+}
+
+async function processInventoryScreenshot() {
+  const file = invScreenshotInput.files[0];
+  if (!file) return;
+
+  if (typeof Tesseract === 'undefined') {
+    ocrProgress.textContent = '⏳ Chargement de Tesseract.js...';
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Impossible de charger Tesseract.js'));
+      document.head.appendChild(s);
+    });
+  }
+
+  ocrBtn.disabled = true;
+  ocrBtn.textContent = '⏳ Analyse en cours...';
+  ocrProgress.textContent = '🔍 Lecture du screenshot (peut prendre 20-60s)...';
+  ocrResults.innerHTML = '';
+
+  try {
+    const { data } = await Tesseract.recognize(
+      file,
+      'fra',
+      { logger: m => { if (m.status === 'recognizing text') ocrProgress.textContent = `🔍 Reconnaissance : ${Math.round(m.progress * 100)}%`; } }
+    );
+
+    const parsed = parseInventoryLines(data.text);
+
+    if (!parsed.length) {
+      ocrProgress.textContent = '⚠️ Aucun item détecté. Assure-toi que les quantités s\'affichent bien (ex: "Bois de frêne (x12)").';
+      ocrResults.innerHTML = `<details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
+        <pre style="white-space:pre-wrap;font-size:0.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>`;
+      ocrBtn.textContent = '🔍 Analyser le screenshot';
+      ocrBtn.disabled = false;
+      return;
+    }
+
+    ocrProgress.textContent = `✅ ${parsed.length} ligne(s) détectée(s) — vérifie avant d'enregistrer.`;
+    ocrResults.innerHTML = `
+      <div class="card" style="margin-top:6px;border-color:rgba(46,204,113,0.4);">
+        <h2 style="color:var(--success);">✅ Validation</h2>
+        <div class="row" style="margin-bottom:12px;">
+          <button class="btn success" onclick="applyScreenshotInventory()">💾 Tout ajouter / mettre à jour</button>
+          <button class="btn secondary" onclick="clearOcrResults()">Annuler</button>
+        </div>
+        <table>
+          <thead><tr><th>Item</th><th>Quantité</th></tr></thead>
+          <tbody>
+          ${parsed.map((p, idx) => `
+            <tr>
+              <td>${esc(p.name)} <span class="muted" style="font-size:0.75rem;">(vérifie le nom)</span></td>
+              <td><input type="number" id="ocrQty${idx}" value="${p.qty}" min="0" style="width:90px;"></td>
+            </tr>
+          `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
+        <pre style="white-space:pre-wrap;font-size:0.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>
+    `;
+
+    window.__ocrParsed = parsed;
+  } catch (e) {
+    ocrProgress.textContent = '❌ Erreur: ' + e.message;
+  } finally {
+    ocrBtn.textContent = '🔍 Analyser le screenshot';
+    ocrBtn.disabled = false;
+  }
+}
+
+function clearOcrResults() {
+  ocrResults.innerHTML = '';
+  ocrProgress.textContent = '';
+  window.__ocrParsed = null;
+}
+
+async function applyScreenshotInventory() {
+  const parsed = window.__ocrParsed;
+  if (!parsed || !parsed.length) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = '⏳ Enregistrement...';
+  ocrResults.prepend(btn);
+  btn.disabled = true;
+
+  try {
+    let done = 0;
+    for (let i = 0; i < parsed.length; i++) {
+      const p = parsed[i];
+      const qtyInput = document.getElementById('ocrQty' + i);
+      const qty = qtyInput ? parseInt(qtyInput.value) || 0 : p.qty;
+      if (qty > 0) {
+        await api('/api/inventaire', { method: 'PUT', body: { item_name: p.name, quantite: qty } });
+      }
+      done++;
+      ocrProgress.textContent = `💾 ${done}/${parsed.length} enregistré(s)...`;
+    }
+    ocrProgress.textContent = `✅ ${done} item(s) mis à jour !`;
+    ocrResults.innerHTML = '';
+    window.__ocrParsed = null;
+    invScreenshotInput.value = '';
+    await loadInventaire();
+  } catch (e) {
+    ocrProgress.textContent = '❌ Erreur: ' + e.message;
+    btn.remove();
+  }
+}
+
+// ============================================================
 //  INITIALISATION
 // ============================================================
 bindSearch('farmSearchInput', 'farmSearchResults', 'selectFarmItem');
 bindSearch('stuffSearchInput', 'stuffSearchResults', 'selectStuffItem');
 bindSearch('suiviSearchInput', 'suiviSearchResults', 'selectSuiviItem');
+bindSearch('invSearchInput', 'invSearchResults', 'selectInvItem');
 
 loadFarmItems();
 loadSuivi();
