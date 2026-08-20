@@ -334,6 +334,14 @@
 
   .statut-select { width: auto; padding: 5px 9px; font-size: .78rem; border-radius: 8px; }
 
+  .inv-qty-input {
+    width: 90px;
+    text-align: center;
+    padding: 6px 8px;
+    font-size: .88rem;
+    font-weight: 700;
+  }
+
   /* ---------- Scrollbar ---------- */
   ::-webkit-scrollbar { width: 9px; height: 9px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -644,27 +652,25 @@
       <h2>📦 Inventaire</h2>
       <div class="row" style="margin-bottom:16px;">
         <button class="btn" onclick="openPalette('inventaire')">➕ Ajouter un item</button>
-        <input type="number" id="invQty" value="0" min="0" style="width:90px;" placeholder="Qté">
       </div>
       <div id="inventaireList"></div>
-    </div>
-
-    <div class="card" style="border-color: rgba(232,163,60,.25);">
-      <h2>📸 Mettre à jour l'inventaire par screenshot</h2>
-      <p class="muted" style="margin-bottom:12px;font-size:.85rem;">
-        Prends un screenshot de ton inventaire en jeu (les quantités doivent être visibles, ex : <em>Bois de frêne (x12)</em>).
-        L'OCR détecte les items et les quantités automatiquement — une validation avec images est proposée avant d'enregistrer.
-      </p>
-      <div class="row">
-        <input type="file" id="invScreenshotInput" accept="image/*" style="max-width:350px;">
-        <button class="btn secondary" id="ocrBtn" onclick="processInventoryScreenshot()" disabled>🔍 Analyser le screenshot</button>
-      </div>
-      <div id="ocrProgress" class="muted" style="margin-top:10px;font-size:.85rem;"></div>
-      <div id="ocrResults" style="margin-top:12px;"></div>
     </div>
   </section>
 
 </main>
+
+<!-- ============ MODALE QUANTITÉ (INVENTAIRE) ============ -->
+<div class="modal-overlay" id="invQtyModal">
+  <div class="modal" style="max-width:340px;text-align:center;">
+    <h2>📦 Quantité en stock</h2>
+    <div id="invQtyModalItem" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;justify-content:center;"></div>
+    <input type="number" id="invQtyInput" value="1" min="0" style="text-align:center;font-size:1.2rem;margin-bottom:14px;">
+    <div class="row" style="justify-content:center;">
+      <button class="btn" onclick="confirmAddInventaire()">💾 Enregistrer</button>
+      <button class="btn secondary" onclick="closeInvQtyModal()">Annuler</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============ MODALE STUFF ============ -->
 <div class="modal-overlay" id="stuffModal">
@@ -909,10 +915,28 @@ async function doAddFarm(id, name, img) {
   } catch (e) { alert('Erreur: ' + e.message); }
 }
 
-async function doAddInventaire(id, name, img) {
-  const qty = parseInt(document.getElementById('invQty').value) || 0;
+let invQtyPending = null; // { id, name, img, existingId }
+
+function doAddInventaire(id, name, img) {
+  invQtyPending = { id, name, img, existingId: null };
+  document.getElementById('invQtyModalItem').innerHTML =
+    (img ? `<img class="item-icon" src="${esc(img)}" alt="">` : '<span class="item-icon placeholder">🎒</span>') +
+    `<strong style="font-size:1.05rem;">${esc(name)}</strong>`;
+  document.getElementById('invQtyInput').value = 1;
+  document.getElementById('invQtyModal').classList.add('show');
+}
+
+function closeInvQtyModal() {
+  document.getElementById('invQtyModal').classList.remove('show');
+  invQtyPending = null;
+}
+
+async function confirmAddInventaire() {
+  if (!invQtyPending) return;
+  const qty = parseInt(document.getElementById('invQtyInput').value) || 0;
   try {
-    await api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty, img_url: img } });
+    await api('/api/inventaire', { method: 'PUT', body: { item_name: invQtyPending.name, quantite: qty, img_url: invQtyPending.img } });
+    closeInvQtyModal();
     closePalette();
     showToast('📦 Inventaire mis à jour');
     await loadInventaire();
@@ -1479,7 +1503,11 @@ function renderInventaire(list) {
           ${itemIconHtml(i.img_url, i.item_name)}
           <span style="display:inline-block;margin-left:10px;vertical-align:middle;">${esc(i.item_name)}</span>
         </td>
-        <td>${formatNumber(i.quantite)}</td>
+        <td>
+          <input type="number" class="inv-qty-input" value="${i.quantite}" min="0"
+                 data-id="${i.id}" data-name="${esc(i.item_name)}" data-img="${esc(i.img_url || '')}"
+                 onchange="updateInventaireQty(this)">
+        </td>
         <td><button class="btn danger small" onclick="deleteInventaire(${i.id})">✕</button></td>
       </tr>
     `).join('')}
@@ -1487,192 +1515,25 @@ function renderInventaire(list) {
   </table>`;
 }
 
+async function updateInventaireQty(input) {
+  const id = parseInt(input.dataset.id);
+  const name = input.dataset.name;
+  const img = input.dataset.img || '';
+  const qty = parseInt(input.value) || 0;
+  try {
+    await api('/api/inventaire', { method: 'PUT', body: { item_name: name, quantite: qty, img_url: img } });
+    showToast('📦 Quantité mise à jour');
+  } catch (e) {
+    alert('Erreur: ' + e.message);
+    input.value = input.defaultValue;
+  }
+}
+
 async function deleteInventaire(id) {
   try {
     await api('/api/inventaire/' + id, { method: 'DELETE' });
     await loadInventaire();
   } catch (e) { alert('Erreur: ' + e.message); }
-}
-
-// ============================================================
-//  SCREENSHOT → OCR INVENTAIRE
-// ============================================================
-const invScreenshotInput = document.getElementById('invScreenshotInput');
-const ocrBtn = document.getElementById('ocrBtn');
-const ocrProgress = document.getElementById('ocrProgress');
-const ocrResults = document.getElementById('ocrResults');
-
-invScreenshotInput.addEventListener('change', () => {
-  ocrBtn.disabled = !invScreenshotInput.files.length;
-  ocrProgress.textContent = '';
-  ocrResults.innerHTML = '';
-});
-
-// Extrait les lignes « Nom (xN) » ou « Nom 12 » depuis le texte brut de l'OCR
-function parseInventoryLines(text) {
-  const lines = [];
-
-  // Format 1 : « Nom (x12) »
-  const regex = /(.{2,60}?)\s*\([x×X]\s*(\d[\d\s.,]*)\)/g;
-  let m;
-  while ((m = regex.exec(text)) !== null) {
-    const name = m[1].trim().replace(/[|_]/g, '');
-    const qty = parseInt(m[2].replace(/[\s.,]/g, ''));
-    if (name && qty > 0) lines.push({ name, qty });
-  }
-
-  // Format 2 : ligne simple « Nom 12 »
-  if (!lines.length) {
-    const regex2 = /^([a-zA-ZÀ-ÿ'’\- ]{2,60}?)\s+(\d{1,6})\s*$/gm;
-    while ((m = regex2.exec(text)) !== null) {
-      const name = m[1].trim().replace(/[|_]/g, '');
-      const qty = parseInt(m[2].replace(/[\s.,]/g, ''));
-      if (name && qty > 0) lines.push({ name, qty });
-    }
-  }
-
-  return lines;
-}
-
-async function processInventoryScreenshot() {
-  const file = invScreenshotInput.files[0];
-  if (!file) return;
-
-  if (typeof Tesseract === 'undefined') {
-    ocrProgress.textContent = '⏳ Chargement de Tesseract.js...';
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('Impossible de charger Tesseract.js'));
-      document.head.appendChild(s);
-    });
-  }
-
-  ocrBtn.disabled = true;
-  ocrBtn.textContent = '⏳ Analyse en cours...';
-  ocrProgress.textContent = '🔍 Lecture du screenshot (peut prendre 20-60s)...';
-  ocrResults.innerHTML = '';
-
-  try {
-    const { data } = await Tesseract.recognize(
-      file,
-      'fra',
-      { logger: m => { if (m.status === 'recognizing text') ocrProgress.textContent = `🔍 Reconnaissance : ${Math.round(m.progress * 100)}%`; } }
-    );
-
-    const parsed = parseInventoryLines(data.text);
-
-    if (!parsed.length) {
-      ocrProgress.textContent = '⚠️ Aucun item détecté. Assure-toi que les quantités s\'affichent bien (ex: "Bois de frêne (x12)").';
-      ocrResults.innerHTML = `<details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
-        <pre style="white-space:pre-wrap;font-size:.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>`;
-      ocrBtn.textContent = '🔍 Analyser le screenshot';
-      ocrBtn.disabled = false;
-      return;
-    }
-
-    ocrProgress.textContent = `🔗 Correspondance avec DofusDB (${parsed.length} item(s))...`;
-    const { results } = await api('/api/ocr-resolve', {
-      method: 'POST',
-      body: { items: parsed.map(p => ({ name: p.name, qty: p.qty })) }
-    });
-
-    const matched = results.filter(r => r.matched);
-    const unmatched = results.filter(r => !r.matched);
-
-    ocrProgress.textContent = `✅ ${matched.length}/${results.length} item(s) reconnus. Vérifie avant d'enregistrer.`;
-    ocrResults.innerHTML = `
-      <div class="card" style="margin-top:6px;border-color:rgba(92,184,116,.4);">
-        <h2 style="color:var(--green);">✅ Validation</h2>
-        <div class="row" style="margin-bottom:12px;">
-          <button class="btn success" onclick="applyScreenshotInventory()">💾 Tout ajouter / mettre à jour</button>
-          <button class="btn secondary" onclick="clearOcrResults()">Annuler</button>
-        </div>
-        <table>
-          <thead><tr><th>Item (image & nom officiel)</th><th>Quantité</th></tr></thead>
-          <tbody>
-          ${results.map((r, idx) => `
-            <tr style="${r.matched ? '' : 'background:rgba(212,87,79,.05);'}">
-              <td style="white-space:nowrap;">
-                ${r.img_url
-                  ? `<img class="item-icon" style="vertical-align:middle;" src="${esc(r.img_url)}" alt="">`
-                  : '<span class="item-icon placeholder" style="vertical-align:middle;">🎒</span>'}
-                <span style="display:inline-block;margin-left:10px;vertical-align:middle;">
-                  <strong>${esc(r.name)}</strong>
-                  ${r.matched
-                    ? '<span class="badge success" style="margin-left:6px;">✓ DofusDB</span>'
-                    : `<span class="badge danger" style="margin-left:6px;">⚠️ Non trouvé</span>
-                       <span class="muted" style="display:block;font-size:.75rem;">(OCR: ${esc(r.original)})</span>`}
-                </span>
-              </td>
-              <td><input type="number" id="ocrQty${idx}" value="${esc(r.qty)}" min="0" style="width:90px;"></td>
-            </tr>
-          `).join('')}
-          </tbody>
-        </table>
-        ${unmatched.length ? `
-          <p class="muted" style="margin-top:10px;font-size:.8rem;">
-            ⚠️ ${unmatched.length} item(s) non trouvé(s) : ${unmatched.map(u => esc(u.original)).join(', ')}.
-            Ils seront enregistrés tels quels — vérifie les noms.
-          </p>` : ''}
-      </div>
-      <details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Texte brut OCR (${data.text.length} caractères)</summary>
-        <pre style="white-space:pre-wrap;font-size:.75rem;color:var(--muted);margin-top:8px;max-height:200px;overflow-y:auto;">${esc(data.text)}</pre></details>
-    `;
-
-    window.__ocrItems = results;
-  } catch (e) {
-    ocrProgress.textContent = '❌ Erreur: ' + e.message;
-  } finally {
-    ocrBtn.textContent = '🔍 Analyser le screenshot';
-    ocrBtn.disabled = false;
-  }
-}
-
-function clearOcrResults() {
-  ocrResults.innerHTML = '';
-  ocrProgress.textContent = '';
-  window.__ocrItems = null;
-}
-
-async function applyScreenshotInventory() {
-  const results = window.__ocrItems;
-  if (!results || !results.length) return;
-
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-  btn.textContent = '⏳ Enregistrement...';
-  ocrResults.prepend(btn);
-  btn.disabled = true;
-
-  try {
-    let done = 0;
-    const toSave = [];
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      const qtyInput = document.getElementById('ocrQty' + i);
-      const qty = qtyInput ? parseInt(qtyInput.value) || 0 : r.qty;
-      if (qty > 0) toSave.push({ name: r.name, qty, img_url: r.img_url });
-    }
-
-    for (const item of toSave) {
-      await api('/api/inventaire', {
-        method: 'PUT',
-        body: { item_name: item.name, quantite: item.qty, img_url: item.img_url }
-      });
-      done++;
-      ocrProgress.textContent = `💾 ${done}/${toSave.length} enregistré(s)...`;
-    }
-    ocrProgress.textContent = `✅ ${done} item(s) mis à jour !`;
-    ocrResults.innerHTML = '';
-    window.__ocrItems = null;
-    invScreenshotInput.value = '';
-    await loadInventaire();
-  } catch (e) {
-    ocrProgress.textContent = '❌ Erreur: ' + e.message;
-    btn.remove();
-  }
 }
 
 // ============================================================

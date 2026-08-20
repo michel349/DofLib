@@ -871,28 +871,6 @@ app.get('/api/item-types', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
-// ---------- Résolution OCR → items DofusDB ----------
-// Reçoit [{name, qty}] (noms détectés par l'OCR) et renvoie pour chacun
-// la correspondance trouvée en base avec l'image officielle de l'item.
-app.post('/api/ocr-resolve', asyncHandler(async (req, res) => {
-  const { items } = req.body;
-  if (!items || !items.length) return res.json({ results: [] });
-
-  const results = [];
-  for (const it of items) {
-    const meta = await resolveItemMeta(it.name);
-    results.push({
-      original: it.name,
-      qty: it.qty || 0,
-      matched: Boolean(meta.id),
-      id: meta.id || null,
-      name: meta.name || it.name,
-      img_url: meta.img_url || ''
-    });
-  }
-  res.json({ results });
-}));
-
 // ---------- Scraping DofusDB ----------
 app.get('/api/items/scrape', asyncHandler(async (req, res) => {
   res.json(scrapeState);
