@@ -808,7 +808,7 @@ async function loadPaletteTypes() {
     const types = await api('/api/item-types');
     const select = paletteType;
     select.innerHTML = '<option value="">🎲 Tous les types</option>' +
-      types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+      types.map(t => `<option value="${esc(t.type)}">${esc(t.type)}</option>`).join('');
     paletteTypesLoaded = true;
   } catch (e) {
     console.warn('Types non chargés:', e.message);
