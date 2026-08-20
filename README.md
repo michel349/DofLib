@@ -74,16 +74,22 @@ Ouvre [http://localhost:3000](http://localhost:3000)
 - Recherche d'items : `GET https://api.dofusdb.fr/items?search[name]=...&lang=fr`
 - Recettes de craft : `GET https://api.dofusdb.fr/recipes?resultId=<itemId>`
 
-## 🔄 Scraping automatique des items
+## 🔄 Scraping automatique des items et des recettes
 
-Au premier démarrage, DofLib aspire **tous les items** de l'API DofusDB (plusieurs centaines de pages, ~70 000 items) dans PostgreSQL (table `dofus_items`). La recherche utilise ensuite cette base locale : rapide et même utilisable si l'API externe est indisponible.
+Au premier démarrage, DofLib aspire automatiquement deux bases locales depuis l'API DofusDB :
 
-- Le scraping tourne en arrière-plan, il n'accepte pas le serveur
-- Reprise automatique : les items déjà en base ne sont pas retéléchargés
-- Si la base est vide, le scraping démarre tout seul au boot
-- Statut : `GET /api/items/scrape`
-- Relance manuelle : `POST /api/items/scrape`
-- Parcourir la base : `GET /api/items?limit=30&page=1`
+1. **Tous les items** (table `dofus_items`, ~70 000 items) : utilisé par la **recherche** (`/api/search`), avec images et types dans l'interface
+2. **Toutes les recettes de craft** (table `dofus_recipes`, ~15 000 recettes) : réplique exacte de l'ancien script Google Sheets `ACTUALISER_DB_ITEMS` — il suffit de taper une recherche dans l'onglet **Farm List**, les résultats s'affichent avec l'image et le type
+
+La **génération de farm list** utilise désormais la table `dofus_recipes` en priorité (plus d'appel API à chaque craft), avec fallback automatique sur l'API si une recette manque.
+
+- Les scrappings tournent en arrière-plan, ils n'acceptent pas le serveur
+- Reprise automatique : items et recettes déjà en base ne sont pas retéléchargés
+- Si une table est vide, son scraping démarre tout seul au boot
+- Statut items : `GET /api/items/scrape` — Relance : `POST /api/items/scrape`
+- Statut recettes : `GET /api/recipes/scrape` — Relance : `POST /api/recipes/scrape`
+- Parcourir les items : `GET /api/items?limit=30&page=1`
+- Parcourir les recettes : `GET /api/recipes?limit=30&page=1`
 
 ## 📁 Structure du projet
 

@@ -98,6 +98,18 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_dofus_items_name ON dofus_items (lower(name));
   CREATE INDEX IF NOT EXISTS idx_dofus_items_level ON dofus_items (level);
+
+  -- Recettes de craft (ID du résultat, nom, niveau, ingrédients JSON)
+  -- Permet de générer la farm list sans appeler l'API DofusDB à chaque fois
+  CREATE TABLE IF NOT EXISTS dofus_recipes (
+    result_id INTEGER PRIMARY KEY,
+    result_name TEXT NOT NULL,
+    result_level INTEGER DEFAULT 0,
+    ingredients JSONB DEFAULT '[]',
+    "updatedAt" TIMESTAMPTZ DEFAULT now()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_dofus_recipes_name ON dofus_recipes (lower(result_name));
 `;
 
 async function initDb() {
@@ -145,9 +157,29 @@ function fetchJson(url) {
 }
 
 async function fetchRecipe(itemId) {
+  // 1) Base locale d'abord (table dofus_recipes)
+  try {
+    const { rows } = await pool.query(
+      'SELECT result_name, result_level, ingredients FROM dofus_recipes WHERE result_id = $1',
+      [itemId]
+    );
+    if (rows.length) {
+      const ing = rows[0].ingredients || [];
+      return {
+        id: itemId,
+        resultId: itemId,
+        resultName: { fr: rows[0].result_name },
+        resultLevel: rows[0].result_level,
+        ingredients: ing.map(x => ({ id: x.id, quantity: x.quantity || 0, name: x.name }))
+      };
+    }
+  } catch (e) { /* table pas encore créée ou vide */ }
+
+  // 2) Cache mémoire
   const cached = itemCache.get(itemId);
   if (cached && cached.recipe) return cached.recipe;
 
+  // 3) Fallback API en direct
   const json = await fetchJson(`https://api.dofusdb.fr/recipes?resultId=${itemId}`);
   const recipe = (json.data && json.data[0]) || null;
 
@@ -364,6 +396,130 @@ async function searchLocalItems(q, limit = 20) {
     [`%${q.toLowerCase()}%`, limit]
   );
   return rows;
+}
+
+// ============================================================
+//  SCRAPING RECETTES DOFUSDB → POSTGRES
+//  Réplique le script Google Sheets ACTUALISER_DB_ITEMS :
+//  aspire l'endpoint /recipes avec pagination $limit/$skip.
+//  Rapide et léger (~15 000 recettes max).
+// ============================================================
+const scrapeRecipesState = {
+  running: false,
+  total: 0,
+  done: 0,
+  skip: 0,
+  errors: []
+};
+
+const RECIPES_LIMIT = 50;   // comme le script : $limit=50
+
+function recipeName(r) {
+  const n = r.resultName || r.name || {};
+  if (typeof n === 'string') return n;
+  return n.fr || n.en || n.de || 'Inconnu';
+}
+
+function buildRecipeRow(r) {
+  const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+  return {
+    result_id: r.resultId,
+    result_name: recipeName(r),
+    result_level: r.resultLevel || 0,
+    ingredients: ings.map(x => {
+      const n = x.name;
+      let frName = '';
+      if (typeof n === 'string') frName = n;
+      else if (n && (n.fr || n.en)) frName = n.fr || n.en;
+      return { id: x.id, quantity: x.quantity || 0, name: { fr: frName } };
+    })
+  };
+}
+
+async function upsertRecipes(rows) {
+  if (!rows.length) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const r of rows) {
+      await client.query(
+        `INSERT INTO dofus_recipes (result_id, result_name, result_level, ingredients)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (result_id) DO UPDATE SET
+           result_name = EXCLUDED.result_name,
+           result_level = EXCLUDED.result_level,
+           ingredients = EXCLUDED.ingredients,
+           "updatedAt" = now()`,
+        [r.result_id, r.result_name, r.result_level, JSON.stringify(r.ingredients)]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function fetchRecipesPage(skip) {
+  const url = `https://api.dofusdb.fr/recipes?$limit=${RECIPES_LIMIT}&$skip=${skip}&$sort=resultId`;
+  return await fetchJson(url);
+}
+
+async function scrapeRecipesLoop() {
+  let skip = 0;
+  let total = Infinity;
+  let consecutiveErrors = 0;
+
+  while (skip < total) {
+    scrapeRecipesState.skip = skip;
+    try {
+      const json = await fetchRecipesPage(skip);
+      const data = json.data || json;
+      if (!data || !data.length) break;
+
+      total = json.total || data.length;
+      await upsertRecipes(data.map(buildRecipeRow));
+      scrapeRecipesState.done += data.length;
+      consecutiveErrors = 0;
+      console.log(`📜 Recettes DofusDB… ${scrapeRecipesState.done}/${total} (skip ${skip})`);
+    } catch (e) {
+      consecutiveErrors++;
+      scrapeRecipesState.errors.push(`skip ${skip}: ${e.message}`);
+      if (scrapeRecipesState.errors.length > 100) scrapeRecipesState.errors.shift();
+      if (consecutiveErrors >= 10) {
+        console.error('⚠️ Trop d\'erreurs recettes, on stoppe. Relance via POST /api/recipes/scrape');
+        break;
+      }
+    }
+    skip += RECIPES_LIMIT;
+    await new Promise(r => setTimeout(r, 150));
+  }
+}
+
+async function startRecipesScrape() {
+  if (scrapeRecipesState.running) return { error: 'Scraping recettes déjà en cours' };
+  scrapeRecipesState.running = true;
+  scrapeRecipesState.total = 0;
+  scrapeRecipesState.done = 0;
+  scrapeRecipesState.skip = 0;
+  scrapeRecipesState.errors = [];
+
+  // Lance en arrière-plan (ne bloque pas le serveur)
+  (async () => {
+    try {
+      await scrapeRecipesLoop();
+      console.log('✅ Scraping recettes terminé —', scrapeRecipesState.done, 'recettes en base');
+    } catch (e) {
+      scrapeRecipesState.errors.push(e.message);
+      console.error('❌ Scraping recettes interrompu:', e.message);
+    } finally {
+      scrapeRecipesState.running = false;
+    }
+  })();
+
+  return { started: true };
 }
 
 // ============================================================
@@ -642,6 +798,28 @@ app.get('/api/items', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// ---------- Scraping Recettes DofusDB ----------
+app.get('/api/recipes/scrape', asyncHandler(async (req, res) => {
+  res.json(scrapeRecipesState);
+}));
+
+app.post('/api/recipes/scrape', asyncHandler(async (req, res) => {
+  const r = await startRecipesScrape();
+  if (r.error) return res.status(409).json({ error: r.error });
+  res.json({ started: true, message: 'Scraping recettes lancé en arrière-plan', ...scrapeRecipesState });
+}));
+
+app.get('/api/recipes', asyncHandler(async (req, res) => {
+  const { limit = 30, page = 1 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { rows } = await pool.query(
+    `SELECT result_id, result_name, result_level FROM dofus_recipes
+     ORDER BY result_name ASC LIMIT $1 OFFSET $2`,
+    [parseInt(limit), offset]
+  );
+  res.json(rows);
+}));
+
 // ---------- Génération Farm List ----------
 app.post('/api/generate-farm', asyncHandler(async (req, res) => {
   const { items, useInventory = true } = req.body;
@@ -720,6 +898,20 @@ initDb().then(async () => {
     }
   } catch (e) {
     console.error('⚠️ Vérification items/sraping:', e.message);
+  }
+
+  // Scraping automatique des recettes (si la table dofus_recipes est vide)
+  // Réplique le script Google Sheets ACTUALISER_DB_ITEMS (endpoint /recipes)
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM dofus_recipes');
+    if (rows[0].count === 0) {
+      console.log('🔄 Table recettes vide → lancement du scraping des recettes DofusDB…');
+      await startRecipesScrape();
+    } else {
+      console.log(`✅ ${rows[0].count} recettes déjà en base, scraping non nécessaire`);
+    }
+  } catch (e) {
+    console.error('⚠️ Vérification recettes/scraping:', e.message);
   }
 }).catch(e => {
   console.error('❌ Erreur de démarrage:', e.message);
