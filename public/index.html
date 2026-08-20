@@ -726,10 +726,14 @@
       <input type="text" id="paletteInput" class="palette-input" placeholder="Tape le nom d'un item... (2 lettres min)">
       <button class="btn tiny secondary" onclick="closePalette()" style="flex-shrink:0;">ESC</button>
     </div>
-    <div style="padding:8px 18px 8px;border-bottom:1px solid rgba(255,255,255,.08);">
-      <select id="paletteType" style="width:auto;max-width:100%;">
-        <option value="">🎲 Tous les types</option>
-      </select>
+    <div id="paletteFilters" style="padding:8px 18px 8px;border-bottom:1px solid rgba(255,255,255,.08);">
+      <div id="paletteTypeChecks" style="display:flex;flex-wrap:wrap;gap:6px;max-height:72px;overflow-y:auto;margin-bottom:8px;"></div>
+      <label class="palette-filter-check" style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-right:14px;">
+        <input type="checkbox" id="paletteCraftable" style="width:auto;"> 🔨 Craftable uniquement
+      </label>
+      <label class="palette-filter-check" style="display:flex;align-items:center;gap:6px;font-size:12.5px;">
+        <input type="checkbox" id="paletteRecipe" style="width:auto;"> 📜 Avec recette
+      </label>
     </div>
     <div class="palette-hint" id="paletteHint">Recherche un item — clique pour ajouter à la Farm List, ou utilise les actions</div>
     <div class="palette-results" id="paletteResults"></div>
@@ -810,24 +814,38 @@ const paletteOverlay = document.getElementById('paletteOverlay');
 const paletteInput = document.getElementById('paletteInput');
 const paletteResults = document.getElementById('paletteResults');
 const paletteHint = document.getElementById('paletteHint');
-const paletteType = document.getElementById('paletteType');
+const paletteTypeChecks = document.getElementById('paletteTypeChecks');
+const paletteCraftable = document.getElementById('paletteCraftable');
+const paletteRecipe = document.getElementById('paletteRecipe');
 
 let paletteMode = null; // null | 'farm' | 'suivi' | 'inventaire' | 'stuff'
 let paletteSearchTimer = null;
 let paletteTypesLoaded = false;
+let paletteSelectedTypes = new Set();
 
 async function loadPaletteTypes() {
   try {
     const types = await api('/api/item-types');
-    const select = paletteType;
-    select.innerHTML = '<option value="">🎲 Tous les types</option>' +
-      types.map(t => `<option value="${esc(t.type)}">${esc(t.type)}</option>`).join('');
+    // On exclut les filtres spéciaux (craftable/recette) gérés par les 2 checkboxes dédiées
+    const realTypes = types.filter(t => !t.special);
+    paletteTypeChecks.innerHTML = realTypes.map(t => `
+      <label class="palette-type-check" style="display:flex;align-items:center;gap:5px;font-size:11.5px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:3px 10px;transition:all .15s;">
+        <input type="checkbox" value="${esc(t.type)}" style="width:auto;accent-color:var(--cyan);" onchange="togglePaletteType(this)">
+        <span>${esc(t.type)}</span>
+      </label>
+    `).join('');
     paletteTypesLoaded = true;
   } catch (e) {
     console.warn('Types non chargés:', e.message);
   }
 }
 loadPaletteTypes();
+
+function togglePaletteType(cb) {
+  if (cb.checked) paletteSelectedTypes.add(cb.value);
+  else paletteSelectedTypes.delete(cb.value);
+  schedulePaletteSearch();
+}
 
 const PALETTE_HINTS = {
   farm: '🧺 Ajout à la Farm List — clique un item pour l\'ajouter',
@@ -862,7 +880,8 @@ paletteOverlay.addEventListener('click', e => {
 });
 
 paletteInput.addEventListener('input', schedulePaletteSearch);
-paletteType.addEventListener('change', schedulePaletteSearch);
+paletteCraftable.addEventListener('change', schedulePaletteSearch);
+paletteRecipe.addEventListener('change', schedulePaletteSearch);
 
 function schedulePaletteSearch() {
   clearTimeout(paletteSearchTimer);
@@ -871,9 +890,15 @@ function schedulePaletteSearch() {
   paletteResults.innerHTML = '<div class="palette-hint">Recherche en cours…</div>';
   paletteSearchTimer = setTimeout(async () => {
     try {
-      const type = paletteType.value;
-      const url = '/api/search?q=' + encodeURIComponent(q) + '&limit=30' + (type ? '&type=' + encodeURIComponent(type) : '');
-      const items = await api(url);
+      const params = new URLSearchParams();
+      params.set('q', q);
+      params.set('limit', '30');
+      if (paletteSelectedTypes.size > 0) {
+        for (const t of paletteSelectedTypes) params.append('type', t);
+      }
+      if (paletteCraftable.checked) params.append('type', 'craftable');
+      if (paletteRecipe.checked) params.append('type', 'recette');
+      const items = await api('/api/search?' + params.toString());
       renderPalette(items);
     } catch (e) {
       paletteResults.innerHTML = '<div class="palette-hint">❌ ' + esc(e.message) + '</div>';

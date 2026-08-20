@@ -69,6 +69,9 @@ const SCHEMA = `
     "createdAt" TIMESTAMPTZ DEFAULT now()
   );
 
+  -- Tables créées avant l'ajout de img_url : on rajoute la colonne si absente
+  ALTER TABLE farm_items ADD COLUMN IF NOT EXISTS img_url TEXT DEFAULT '';
+
   CREATE TABLE IF NOT EXISTS inventaire (
     id SERIAL PRIMARY KEY,
     item_name TEXT NOT NULL UNIQUE,
@@ -193,22 +196,45 @@ async function fetchRecipe(itemId) {
   return recipe;
 }
 
-async function searchRecipesLocal(q, limit = 20, type = '') {
+// ---------- Recherche multi-filtres ----------
+// Une catégorie "type" peut être un vrai type (ex: "Ressource") ou
+// un filtre spécial : "craftable" (items avec recette) / "recette" (items dans dofus_recipes)
+const SPECIAL_TYPES = ['craftable', 'recette'];
+
+function parseTypes(value) {
+  // Accepte une string ou un array (query params répétés type=A&type=B)
+  if (!value) return [];
+  const arr = Array.isArray(value) ? value : [value];
+  return [...new Set(arr.filter(Boolean))];
+}
+
+async function searchRecipesLocal(q, limit = 20, types = []) {
   // Recherche dans les recettes de craft scrappées (table dofus_recipes)
   // Enrichie avec l'image et le vrai type depuis dofus_items (si disponible)
-  // Si un type est précisé, on filtre pour ne mélanger que des items du même type
-  const { rows } = await pool.query(
-    `SELECT r.result_id AS id, r.result_name AS name, r.result_level AS level,
+  // Si des types sont précisés, on filtre pour ne mélanger que des items des mêmes types
+  const wantsRecettes = !types.length || types.includes('recette') || types.includes('craftable');
+
+  if (!wantsRecettes) return [];
+
+  let query = `SELECT r.result_id AS id, r.result_name AS name, r.result_level AS level,
             COALESCE(i.img_url, '') AS img_url,
             COALESCE(i.type, '') AS type
      FROM dofus_recipes r
      LEFT JOIN dofus_items i ON i.id = r.result_id
-     WHERE lower(r.result_name) LIKE $1
-       ${type ? ` AND i.type = $3` : ''}
-     ORDER BY r.result_level ASC
-     LIMIT $2`,
-    type ? [`%${q.toLowerCase()}%`, limit, type] : [`%${q.toLowerCase()}%`, limit]
-  );
+     WHERE lower(r.result_name) LIKE $1`;
+  const params = [`%${q.toLowerCase()}%`];
+
+  const realTypes = types.filter(t => !SPECIAL_TYPES.includes(t));
+  if (realTypes.length) {
+    const placeholders = realTypes.map((_, i) => '$' + (params.length + 1 + i)).join(',');
+    query += ` AND i.type IN (${placeholders})`;
+    params.push(...realTypes);
+  }
+
+  query += ` ORDER BY r.result_level ASC LIMIT $${params.length + 1}`;
+  params.push(limit);
+
+  const { rows } = await pool.query(query, params);
   return rows.map(r => ({
     id: r.id,
     name: r.name,
@@ -218,11 +244,65 @@ async function searchRecipesLocal(q, limit = 20, type = '') {
   }));
 }
 
-async function searchDofusDB(query, type = '', limit = 50) {
+async function searchLocalItems(q, limit = 20, types = []) {
+  const params = [`%${q.toLowerCase()}%`];
+  let typeFilter = '';
+
+  const wantsAll = !types.length;
+  const wantsCraftable = types.includes('craftable');
+  const wantsRecette = types.includes('recette');
+
+  // Filtres particuliers
+  if (wantsCraftable || wantsRecette) {
+    // Si un filtre spécial est actif, on ne prend QUE les items avec recette
+    typeFilter = ` AND EXISTS (
+       SELECT 1 FROM dofus_recipes rc WHERE rc.result_id = dofus_items.id
+     )`;
+  }
+
+  // Filtres par types réels (Ressource, Arme, etc.)
+  if (wantsAll) {
+    // Aucun filtre : exclut seulement les non-items
+    params.push(...NON_ITEM_TYPES);
+    typeFilter += ` AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (params.length - NON_ITEM_TYPES.length + i + 1)).join(',')}))`;
+  } else {
+    const realTypes = types.filter(t => !SPECIAL_TYPES.includes(t));
+    if (realTypes.length) {
+      const placeholders = realTypes.map((_, i) => '$' + (params.length + 1 + i)).join(',');
+      typeFilter += ` AND type IN (${placeholders})`;
+      params.push(...realTypes);
+    } else if (wantsCraftable || wantsRecette) {
+      // Aucun type réel : on garde tout (le filtre craftable gère déjà)
+    } else {
+      // Cas ne devrait pas arriver
+      params.push(...NON_ITEM_TYPES);
+      typeFilter += ` AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (params.length - NON_ITEM_TYPES.length + i + 1)).join(',')}))`;
+    }
+  }
+
+  params.push(limit);
+  const { rows } = await pool.query(
+    `SELECT id, name, level, type, img_url
+     FROM dofus_items
+     WHERE lower(name) LIKE $1
+       ${typeFilter}
+     ORDER BY CASE
+       WHEN type IN ('Équipement','Equipement','Arme','Bouclier','Trophée') THEN 0
+       WHEN type IN ('Consommable','Parcho') THEN 1
+       WHEN type = 'Ressource' THEN 2
+       ELSE 3 END,
+       level ASC
+     LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
+async function searchDofusDB(query, types = [], limit = 50) {
   // 1) Recherche en parallèle : items locaux + recettes de craft
   const [local, recettes] = await Promise.all([
-    searchLocalItems(query, limit, type),
-    searchRecipesLocal(query, limit * 2, type)
+    searchLocalItems(query, limit, types),
+    searchRecipesLocal(query, limit * 2, types)
   ]);
 
   // 2) Fusion : priorité aux items craftables (présents dans dofus_recipes),
@@ -521,31 +601,6 @@ async function resolveItemMeta(name) {
     if (r2.length) return { id: r2[0].id, name: r2[0].name, img_url: r2[0].img_url || '' };
   } catch (e) { /* ignore */ }
   return {};
-}
-
-async function searchLocalItems(q, limit = 20, type = '') {
-  const params = [`%${q.toLowerCase()}%`, limit, ...NON_ITEM_TYPES];
-  let typeFilter = '';
-  if (type) {
-    params.push(type);
-    typeFilter = ' AND type = $' + params.length;
-  }
-  const { rows } = await pool.query(
-    `SELECT id, name, level, type, img_url
-     FROM dofus_items
-     WHERE lower(name) LIKE $1
-       AND (type = '' OR type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 3)).join(',')}))
-       ${typeFilter}
-     ORDER BY CASE
-       WHEN type IN ('Équipement','Equipement','Arme','Bouclier','Trophée') THEN 0
-       WHEN type IN ('Consommable','Parcho') THEN 1
-       WHEN type = 'Ressource' THEN 2
-       ELSE 3 END,
-       level ASC
-     LIMIT $2`,
-    params
-  );
-  return rows;
 }
 
 // ============================================================
@@ -927,9 +982,10 @@ app.delete('/api/attributions/:id', asyncHandler(async (req, res) => {
 app.get('/api/search', asyncHandler(async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json([]);
-  const type = req.query.type || '';
+  // Supporte les filtres multiples : ?type=Ressource&type=Arme ou ?type=craftable
+  const types = parseTypes(req.query.type);
   const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-  res.json(await searchDofusDB(q, type, limit));
+  res.json(await searchDofusDB(q, types, limit));
 }));
 
 // Liste des types d'items présents en base (pour le filtre de la palette)
@@ -943,8 +999,34 @@ app.get('/api/item-types', asyncHandler(async (req, res) => {
      ORDER BY count DESC`,
     NON_ITEM_TYPES
   );
-  res.json(rows);
+  // Ajoute les filtres spéciaux craftable/recette en plus des types
+  res.json([
+    { type: 'craftable', count: await countCraftables(), special: true },
+    { type: 'recette', count: await countRecettes(), special: true },
+    ...rows
+  ]);
 }));
+
+async function countCraftables() {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(DISTINCT r.result_id)::int AS count
+       FROM dofus_recipes r
+       JOIN dofus_items i ON i.id = r.result_id
+       WHERE i.type != ''
+         AND i.type NOT IN (${NON_ITEM_TYPES.map((_, i) => '$' + (i + 1)).join(',')})`,
+      NON_ITEM_TYPES
+    );
+    return rows[0].count || 0;
+  } catch (e) { return 0; }
+}
+
+async function countRecettes() {
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM dofus_recipes');
+    return rows[0].count || 0;
+  } catch (e) { return 0; }
+}
 
 // ---------- Statistiques & Nettoyage de la base items ----------
 app.get('/api/items/stats', asyncHandler(async (req, res) => {
