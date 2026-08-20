@@ -189,16 +189,35 @@ async function fetchRecipe(itemId) {
   return recipe;
 }
 
+async function searchRecipesLocal(q, limit = 20) {
+  // Recherche dans les recettes de craft scrappées (table dofus_recipes)
+  const { rows } = await pool.query(
+    `SELECT result_id AS id, result_name AS name, result_level AS level
+     FROM dofus_recipes
+     WHERE lower(result_name) LIKE $1
+     ORDER BY result_level ASC
+     LIMIT $2`,
+    [`%${q.toLowerCase()}%`, limit]
+  );
+  return rows.map(r => ({ ...r, type: 'Recette', img_url: '' }));
+}
+
 async function searchDofusDB(query) {
-  // 1) Recherche locale d'abord (base scrappée)
+  // 1) Recherche locale d'abord (base d'items scrappée)
   const local = await searchLocalItems(query, 20);
   if (local.length > 0) {
     return local.map(r => ({ id: r.id, name: r.name, level: r.level, type: r.type, img_url: r.img_url }));
   }
 
-  // 2) Fallback API en direct si la base est vide/incomplète
+  // 2) Si la base items est vide, cherche dans les recettes scrappées
+  //    (table dofus_recipes) — permet à la Farm List de fonctionner
+  //    même avant la fin du scraping des items.
+  const recettes = await searchRecipesLocal(query, 20);
+  if (recettes.length > 0) return recettes;
+
+  // 3) Fallback API en direct (format $limit/$skip DofusDB)
   try {
-    const url = `https://api.dofusdb.fr/items?search[name]=${encodeURIComponent(query)}&lang=fr&limit=8`;
+    const url = `https://api.dofusdb.fr/items?search[name]=${encodeURIComponent(query)}&lang=fr&$limit=8`;
     const json = await fetchJson(url);
     return (json.data || []).map(i => {
       if (!itemCache.has(i.id)) {
@@ -303,31 +322,42 @@ async function upsertItems(rows) {
   }
 }
 
-async function fetchItemsPage(page) {
-  const url = `https://api.dofusdb.fr/items?lang=fr&page=${page}&limit=${PAGE_SIZE}`;
+async function fetchItemsPage(skip) {
+  // L'API DofusDB utilise $limit/$skip (comme le script Google Sheets),
+  // PAS page/limit — c'est pour ça que le scraping renvoyait 0 item.
+  const url = `https://api.dofusdb.fr/items?lang=fr&$limit=${PAGE_SIZE}&$skip=${skip}`;
   return await fetchJson(url);
 }
 
 async function scrapeLoop(typeFilter) {
-  let page = 1;
+  let skip = 0;
   let total = Infinity;
   let consecutiveErrors = 0;
   const processedIds = new Set();
 
-  while (page * PAGE_SIZE <= total + PAGE_SIZE) {
-    scrapeState.page = page;
-
-    // Récupère 6 pages en parallèle
-    const pages = [];
-    for (let i = 0; i < CONCURRENCY; i++) {
-      const p = page + i;
-      if (p * PAGE_SIZE <= total + PAGE_SIZE) pages.push(p);
+  // Reprise automatique : charge les IDs déjà en base pour ne pas les retélécharger
+  // (utile quand Railway redémarre le conteneur en plein scraping)
+  try {
+    const { rows } = await pool.query('SELECT id FROM dofus_items');
+    rows.forEach(r => processedIds.add(r.id));
+    if (processedIds.size > 0) {
+      console.log(`♻️ Reprise du scraping : ${processedIds.size} items déjà en base, on continue…`);
     }
-    if (!pages.length) break;
+  } catch (e) { /* table vide ou pas encore créée */ }
 
-    const results = await Promise.allSettled(pages.map(p => fetchItemsPage(p)));
+  while (skip < total) {
+    scrapeState.page = Math.floor(skip / PAGE_SIZE) + 1;
 
-    let stop = false;
+    // Récupère plusieurs tranches en parallèle
+    const skips = [];
+    for (let i = 0; i < CONCURRENCY; i++) {
+      const s = skip + i * PAGE_SIZE;
+      if (s < total) skips.push(s);
+    }
+    if (!skips.length) break;
+
+    const results = await Promise.allSettled(skips.map(s => fetchItemsPage(s)));
+
     for (const r of results) {
       if (r.status === 'fulfilled' && r.value && Array.isArray(r.value.data)) {
         total = r.value.total || total;
@@ -340,23 +370,23 @@ async function scrapeLoop(typeFilter) {
         }
       } else {
         consecutiveErrors++;
-        scrapeState.errors.push(`page ${r.status === 'rejected' ? '? ' + (r.reason && r.reason.message) : (r.value && r.value.status)}`);
+        scrapeState.errors.push(`skip ${r.status === 'rejected' ? '? ' + (r.reason && r.reason.message) : (r.value && r.value.status)}`);
         if (scrapeState.errors.length > 100) scrapeState.errors.shift();
       }
     }
 
-    console.log(`📦 Scraping DofusDB… ${scrapeState.done}/${total} (page ${page})`);
+    console.log(`📦 Scraping DofusDB… ${scrapeState.done}/${total} (skip ${skip})`);
 
     if (consecutiveErrors >= 10) {
       console.error('⚠️ Trop d\'erreurs consécutives, on stoppe le scraping. Relance via POST /api/items/scrape');
       break;
     }
 
-    // Garde-fou : si la page retournée est vide, c'est fini
+    // Garde-fou : si la tranche retournée est vide, c'est fini
     const anyData = results.some(r => r.status === 'fulfilled' && r.value && Array.isArray(r.value.data) && r.value.data.length > 0);
     if (!anyData) break;
 
-    page += CONCURRENCY;
+    skip += CONCURRENCY * PAGE_SIZE;
     await new Promise(r => setTimeout(r, 250));
   }
 }
