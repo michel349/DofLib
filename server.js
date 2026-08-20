@@ -1129,32 +1129,47 @@ app.post('/api/generate-farm', asyncHandler(async (req, res) => {
   const { craftables, brutes, errors } = await computeFarmList(farmItems);
 
   const resourceTotals = {};
-  const seen = new Set();
 
   function addResource(id, name, qte) {
     if (!resourceTotals[id]) resourceTotals[id] = { name, qte: 0 };
     resourceTotals[id].qte += qte;
   }
 
-  async function decomposeCraftable(craftableId, multiplier) {
-    if (seen.has(craftableId) || !craftables[craftableId]) return;
-    seen.add(craftableId);
+  // Calcul du nombre TOTAL d'unités nécessaires de chaque craftable :
+  // demande directe (celle de l'utilisateur) + besoins indirects
+  // (l'item est ingrédient d'un autre craftable demandé).
+  // Exemple : item A nécessite 3×B et l'utilisateur demande 4×B →
+  // need[B] = 4 + 3 × need[A].
+  const neededCache = new Map();
+  function computeNeededUnits(id) {
+    if (neededCache.has(id)) return neededCache.get(id);
+    const direct = craftables[id] ? craftables[id].total : 0;
+    let total = direct;
+    neededCache.set(id, total); // anti-cycle provisoire (recettes Dofus = DAG)
+    for (const [parentId, parentCraft] of Object.entries(craftables)) {
+      if (parentId === id) continue;
+      const ing = parentCraft.ingredients[id];
+      if (!ing) continue;
+      const parentUnits = computeNeededUnits(parentId);
+      total += (ing.totalQte / Math.max(1, parentCraft.total)) * parentUnits;
+    }
+    neededCache.set(id, total);
+    return total;
+  }
 
-    const craft = craftables[craftableId];
+  // Ingrédients bruts : chaque craftable contribue proportionnellement
+  // au nombre d'unités nécessaires (demande directe + indirecte)
+  for (const [cid, craft] of Object.entries(craftables)) {
+    const units = computeNeededUnits(cid);
+    if (units <= 0) continue;
+    const proportion = units / Math.max(1, craft.total);
     for (const [ingId, ing] of Object.entries(craft.ingredients)) {
-      const totalQte = ing.totalQte * multiplier;
-      if (craftables[ingId]) {
-        await decomposeCraftable(ingId, totalQte / Math.max(1, craft.total));
-      } else {
-        addResource(ingId, ing.name, totalQte);
-      }
+      if (craftables[ingId]) continue; // craftable imbriqué → géré par la récursion
+      addResource(parseInt(ingId), ing.name, ing.totalQte * proportion);
     }
   }
 
-  for (const craftableId of Object.keys(craftables)) {
-    await decomposeCraftable(craftableId, 1);
-  }
-
+  // Ressources brutes directement demandées (pas de recette)
   for (const [id, info] of Object.entries(brutes)) {
     addResource(parseInt(id), info.name, info.total);
   }
