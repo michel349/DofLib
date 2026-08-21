@@ -731,42 +731,79 @@ async function startRecipesScrape() {
 //  CALCULATEUR RÉCURSIF DE FARM LIST
 // ============================================================
 async function computeFarmList(items) {
-  const craftables = {};   // id -> {name, total, ingredients: {id: {name, totalQte}}}
-  const brutes = {};       // id -> {name, total}
+  // crafts[id] = { name, total: demande directe, qtyPerUnit: { ingId: qty } }
+  const crafts = {};
+  // recipes[id] = recette complète (ou null si l'item n'a pas de recette)
+  // Charge RÉCURSIVEMENT les recettes des ingrédients imbriqués :
+  // ex. Équipement → Rune (craftable) → Ressource brute.
+  const recipes = new Map();
+  const brutes = {};
   const errors = [];
+  const loading = new Set();
+  // id → nom français de tous les ingrédients rencontrés (bruts ET craftables)
+  const ingredientNames = new Map();
 
-  for (const entry of items) {
-    const { itemId, itemName, quantite } = entry;
+  async function ensureRecipeTree(itemId, itemName) {
+    if (recipes.has(itemId) || loading.has(itemId)) return;
+    loading.add(itemId);
     try {
       const recipe = await fetchRecipe(itemId);
-
-      if (!recipe) {
-        if (!brutes[itemId]) brutes[itemId] = { name: itemName, total: 0 };
-        brutes[itemId].total += quantite;
-        continue;
-      }
-
-      const ingredients = recipe.ingredients || [];
-      if (!craftables[itemId]) craftables[itemId] = { name: itemName, total: 0, ingredients: {} };
-      craftables[itemId].total += quantite;
-
-      for (const ing of ingredients) {
-        let qte = ing.quantity || 0;
-        if (qte === 0 && recipe.quantities && recipe.ingredientIds) {
-          const idx = recipe.ingredientIds.indexOf(ing.id);
-          if (idx >= 0) qte = recipe.quantities[idx] || 0;
+      recipes.set(itemId, recipe);
+      if (recipe) {
+        for (const ing of recipe.ingredients || []) {
+          ingredientNames.set(ing.id, getItemName(ing));
+          await ensureRecipeTree(ing.id, getItemName(ing));
         }
-        const cing = craftables[itemId].ingredients;
-        if (!cing[ing.id]) cing[ing.id] = { name: getItemName(ing), totalQte: 0 };
-        cing[ing.id].totalQte += qte * quantite;
       }
     } catch (e) {
       errors.push(`${itemName} (erreur API: ${e.message})`);
+      recipes.set(itemId, null);
     }
     await new Promise(r => setTimeout(r, 100));
   }
 
-  return { craftables, brutes, errors };
+  for (const entry of items) {
+    const { itemId, itemName, quantite } = entry;
+
+    // Charge la recette de l'item (et toutes ses sous-recettes)
+    await ensureRecipeTree(itemId, itemName);
+    const recipe = recipes.get(itemId);
+
+    if (!recipe) {
+      if (!brutes[itemId]) brutes[itemId] = { name: itemName, total: 0 };
+      brutes[itemId].total += quantite;
+      continue;
+    }
+
+    if (!crafts[itemId]) crafts[itemId] = { name: itemName, total: 0, qtyPerUnit: {} };
+    crafts[itemId].total += quantite;
+  }
+
+  // Construit qtyPerUnit pour TOUS les craftables présents dans l'arbre
+  // de recettes (demandés ET imbriqués). Les imbriqués non demandés
+  // ontt total = 0 mais leur qtyPerUnit sera utilisé lors de la décomposition.
+  for (const [id, recipe] of recipes) {
+    if (!recipe) continue;
+    const cid = typeof id === 'string' ? parseInt(id) : id;
+    if (!crafts[cid]) {
+      const rn = recipe.resultName;
+      crafts[cid] = {
+        name: (rn && rn.fr) ? rn.fr : (typeof rn === 'string' ? rn : 'Inconnu'),
+        total: 0,
+        qtyPerUnit: {}
+      };
+    }
+    for (const ing of recipe.ingredients || []) {
+      let qte = ing.quantity || 0;
+      if (qte === 0 && recipe.quantities && recipe.ingredientIds) {
+        const idx = recipe.ingredientIds.indexOf(ing.id);
+        if (idx >= 0) qte = recipe.quantities[idx] || 0;
+      }
+      crafts[cid].qtyPerUnit[ing.id] = qte;
+    }
+  }
+
+  return { crafts, recipes, brutes, errors, ingredientNames };
 }
 
 // ============================================================
@@ -1126,7 +1163,7 @@ app.post('/api/generate-farm', asyncHandler(async (req, res) => {
     quantite: i.quantite
   }));
 
-  const { craftables, brutes, errors } = await computeFarmList(farmItems);
+  const { crafts, recipes, brutes, errors, ingredientNames } = await computeFarmList(farmItems);
 
   const resourceTotals = {};
 
@@ -1135,41 +1172,59 @@ app.post('/api/generate-farm', asyncHandler(async (req, res) => {
     resourceTotals[id].qte += qte;
   }
 
+  function nameOf(recipe) {
+    if (!recipe) return 'Inconnu';
+    const rn = recipe.resultName;
+    if (rn && rn.fr) return rn.fr;
+    if (typeof rn === 'string') return rn;
+    return 'Inconnu';
+  }
+
   // Calcul du nombre TOTAL d'unités nécessaires de chaque craftable :
-  // demande directe (celle de l'utilisateur) + besoins indirects
+  // demande directe (quantité saisie) + besoins indirects
   // (l'item est ingrédient d'un autre craftable demandé).
   // Exemple : item A nécessite 3×B et l'utilisateur demande 4×B →
-  // need[B] = 4 + 3 × need[A].
+  // needed[B] = 4 + 3 × needed[A].
   const neededCache = new Map();
   function computeNeededUnits(id) {
     if (neededCache.has(id)) return neededCache.get(id);
-    const direct = craftables[id] ? craftables[id].total : 0;
-    let total = direct;
-    neededCache.set(id, total); // anti-cycle provisoire (recettes Dofus = DAG)
-    for (const [parentId, parentCraft] of Object.entries(craftables)) {
-      if (parentId === id) continue;
-      const ing = parentCraft.ingredients[id];
-      if (!ing) continue;
-      const parentUnits = computeNeededUnits(parentId);
-      total += (ing.totalQte / Math.max(1, parentCraft.total)) * parentUnits;
+    const craft = crafts[id];
+    if (!craft) { neededCache.set(id, 0); return 0; }
+    let total = craft.total;
+    neededCache.set(id, total); // anti-cycle (recettes Dofus = DAG)
+    for (const [parentId, parentCraft] of Object.entries(crafts)) {
+      if (parentId == id) continue;
+      const qpu = parentCraft.qtyPerUnit[id];
+      if (!qpu) continue;
+      total += qpu * computeNeededUnits(parentId);
     }
     neededCache.set(id, total);
     return total;
   }
 
-  // Ingrédients bruts : chaque craftable contribue proportionnellement
-  // au nombre d'unités nécessaires (demande directe + indirecte)
-  for (const [cid, craft] of Object.entries(craftables)) {
-    const units = computeNeededUnits(cid);
-    if (units <= 0) continue;
-    const proportion = units / Math.max(1, craft.total);
-    for (const [ingId, ing] of Object.entries(craft.ingredients)) {
-      if (craftables[ingId]) continue; // craftable imbriqué → géré par la récursion
-      addResource(parseInt(ingId), ing.name, ing.totalQte * proportion);
+  // Décompose la recette d'un craftable pour `units` unités. Les ingrédients
+  // qui sont eux-mêmes craftables sont ignorés ici : ils ont leur propre
+  // entrée dans `crafts` et seront décomposés par leur propre itération
+  // avec la bonne quantité (besoin total direct + indirect).
+  function decompose(craftId, units) {
+    if (units <= 0) return;
+    const craft = crafts[craftId];
+    if (!craft) return;
+    for (const [ingIdStr, qpu] of Object.entries(craft.qtyPerUnit)) {
+      const ingId = parseInt(ingIdStr);
+      if (crafts[ingId]) continue; // craftable imbriqué → son propre passage
+      const totalQte = qpu * units;
+      addResource(ingId, ingredientNames.get(ingId) || nameOf(recipes.get(ingId)), totalQte);
     }
   }
 
-  // Ressources brutes directement demandées (pas de recette)
+  // Décompose chaque craftable de l'arbre selon ses besoins totaux.
+  for (const cidStr of Object.keys(crafts)) {
+    const cid = parseInt(cidStr);
+    decompose(cid, computeNeededUnits(cid));
+  }
+
+  // Ressources brutes directement demandées (items sans recette)
   for (const [id, info] of Object.entries(brutes)) {
     addResource(parseInt(id), info.name, info.total);
   }
