@@ -172,6 +172,11 @@ async function fetchRecipe(itemId) {
     );
     if (rows.length) {
       const ing = rows[0].ingredients || [];
+      // Recette invalide si elle a des ingrédients mais tous à quantity 0
+      // (scraping qui n'a pas récupéré les quantités) → fallback API directe
+      if (ing.length && !ing.some(x => (x.quantity || 0) > 0)) {
+        throw new Error('quantities_invalides');
+      }
       return {
         id: itemId,
         resultId: itemId,
@@ -180,15 +185,62 @@ async function fetchRecipe(itemId) {
         ingredients: ing.map(x => ({ id: x.id, quantity: x.quantity || 0, name: x.name }))
       };
     }
-  } catch (e) { /* table pas encore créée ou vide */ }
+  } catch (e) { /* table pas encore créée, vide, ou quantités invalides → API directe */ }
 
   // 2) Cache mémoire
   const cached = itemCache.get(itemId);
   if (cached && cached.recipe) return cached.recipe;
 
-  // 3) Fallback API en direct
+  // 3) Fallback API en direct — normalise la recette (quantités depuis
+  //    `quantities[]` indexé par `ingredientIds[]`) et la stocke en BDD
+  //    pour ne pas rappeler l'API à chaque génération.
   const json = await fetchJson(`https://api.dofusdb.fr/recipes?resultId=${itemId}`);
-  const recipe = (json.data && json.data[0]) || null;
+  const raw = (json.data && json.data[0]) || null;
+  if (!raw) {
+    const entryNull = itemCache.get(itemId) || {};
+    entryNull.recipe = null;
+    itemCache.set(itemId, entryNull);
+    return null;
+  }
+
+  const ings = Array.isArray(raw.ingredients) ? raw.ingredients : [];
+  const ingredientIds = Array.isArray(raw.ingredientIds) ? raw.ingredientIds : [];
+  const quantities = Array.isArray(raw.quantities) ? raw.quantities : [];
+  const frName = recipeName(raw);
+  const recipe = {
+    id: itemId,
+    resultId: itemId,
+    resultName: { fr: frName },
+    resultLevel: raw.resultLevel || 0,
+    ingredients: ings.map(x => {
+      const n = x.name;
+      let ingName = '';
+      if (typeof n === 'string') ingName = n;
+      else if (n && (n.fr || n.en)) ingName = n.fr || n.en;
+      let quantity = x.quantity || 0;
+      // Même fallback que buildRecipeRow : les quantités sont souvent dans
+      // un tableau séparé `quantities[]` indexé par `ingredientIds[]`.
+      if (quantity === 0 && ingredientIds.length && quantities.length) {
+        const idx = ingredientIds.indexOf(x.id);
+        if (idx >= 0) quantity = quantities[idx] || 0;
+      }
+      return { id: x.id, quantity, name: { fr: ingName } };
+    })
+  };
+
+  // Met à jour la BDD pour les prochaines requêtes (évite de rappeler l'API)
+  try {
+    await pool.query(
+      `INSERT INTO dofus_recipes (result_id, result_name, result_level, ingredients)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (result_id) DO UPDATE SET
+         result_name = EXCLUDED.result_name,
+         result_level = EXCLUDED.result_level,
+         ingredients = EXCLUDED.ingredients,
+         "updatedAt" = now()`,
+      [recipe.resultId, recipe.resultName.fr, recipe.resultLevel, JSON.stringify(recipe.ingredients)]
+    );
+  } catch (e) { /* table pas encore créée */ }
 
   const entry = itemCache.get(itemId) || {};
   entry.recipe = recipe;
@@ -627,6 +679,8 @@ function recipeName(r) {
 
 function buildRecipeRow(r) {
   const ings = Array.isArray(r.ingredients) ? r.ingredients : [];
+  const ingredientIds = Array.isArray(r.ingredientIds) ? r.ingredientIds : [];
+  const quantities = Array.isArray(r.quantities) ? r.quantities : [];
   return {
     result_id: r.resultId,
     result_name: recipeName(r),
@@ -636,7 +690,15 @@ function buildRecipeRow(r) {
       let frName = '';
       if (typeof n === 'string') frName = n;
       else if (n && (n.fr || n.en)) frName = n.fr || n.en;
-      return { id: x.id, quantity: x.quantity || 0, name: { fr: frName } };
+      let quantity = x.quantity || 0;
+      // L'API DofusDB renvoie souvent les quantités dans un tableau séparé
+      // `quantities[]` indexé par `ingredientIds[]` (pas sur chaque ingrédient).
+      // Sans ce fallback, toutes les quantités stockées en BDD seraient 0.
+      if (quantity === 0 && ingredientIds.length && quantities.length) {
+        const idx = ingredientIds.indexOf(x.id);
+        if (idx >= 0) quantity = quantities[idx] || 0;
+      }
+      return { id: x.id, quantity, name: { fr: frName } };
     })
   };
 }
