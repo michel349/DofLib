@@ -605,49 +605,63 @@
   <!-- ============ COMPTE HAREBOUG ============ -->
   <section id="tab-harebourg" class="tab">
     <div class="card">
-      <h2>🏰 Compte Harebourg — Mémo technique du donjon</h2>
+      <h2>🏰 Harebourg — Système des piliers</h2>
       <p class="muted" style="margin-bottom:14px;">
-        Système de rotation des piliers : tape sur le pilier correspondant selon sa position.
+        Regarde la fraction affichée, puis tape dans la direction correspondante.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Position</th>
-            <th>À gauche</th>
-            <th>Derrière</th>
-            <th>À droite</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Combinaison</strong></td>
-            <td><span class="badge info">1/2 × 2/4</span></td>
-            <td><span class="badge gold">1/1 × 2/2 × 4/4</span></td>
-            <td><span class="badge warning">03/02 × 4/2</span></td>
-          </tr>
-          <tr>
-            <td><strong>Rotation</strong></td>
-            <td>90°</td>
-            <td>180°</td>
-            <td>270°</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="muted" style="margin-top:12px;font-size:12px;">
-        💡 <strong>Rappel :</strong> tape à gauche (90°), derrière (180°) ou à droite (270°) selon la combinaison affichée.
-      </div>
-      <div class="card" style="margin-top:14px;margin-bottom:0;border-color:rgba(255,207,77,.3);background:rgba(255,207,77,.05);">
-        <h2 style="color:var(--yellow);">⚡ Astuce</h2>
-        <p style="font-size:13px;">
-          Sur le calcul <strong>x/y</strong> : si le <strong>1er x est inférieur au 2e</strong> (ex. 1/2, 2/4, 03/02), alors tu tapes <strong>à gauche</strong>.
-          <br><br>
-          <strong>Sinon, c'est à droite.</strong>
-        </p>
-        <div style="margin-top:12px;padding:10px 12px;border:1px solid rgba(255,92,92,.4);border-radius:8px;background:rgba(255,92,92,.08);">
-          <p style="font-size:12.5px;color:var(--red);font-weight:600;">
-            ⚠️ <strong>ATTENTION :</strong> si c'est marqué avant le x/x « confusion contre horaire », alors c'est l'<strong>inverse</strong>.
-          </p>
+
+      <!-- ⬅️ GAUCHE -->
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:12px;margin-bottom:12px;
+                  background:linear-gradient(135deg,rgba(0,166,255,.15),rgba(0,166,255,.04));
+                  border:2px solid rgba(0,166,255,.45);">
+        <div style="font-size:38px;line-height:1;">⬅️</div>
+        <div style="flex:1;">
+          <div style="font-size:18px;font-weight:800;color:var(--cyan-2);text-transform:uppercase;letter-spacing:1px;">À gauche</div>
+          <div class="muted" style="font-size:12px;">Rotation 90°</div>
         </div>
+        <div style="font-size:26px;font-weight:800;color:var(--cyan-2);text-align:center;line-height:1.25;">
+          1/2<br><span style="color:var(--muted);font-size:15px;">et</span><br>2/4
+        </div>
+      </div>
+
+      <!-- 🔵 DERRIÈRE -->
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:12px;margin-bottom:12px;
+                  background:linear-gradient(135deg,rgba(123,92,255,.15),rgba(123,92,255,.04));
+                  border:2px solid rgba(123,92,255,.45);">
+        <div style="font-size:38px;line-height:1;">🔵</div>
+        <div style="flex:1;">
+          <div style="font-size:18px;font-weight:800;color:#b3a0ff;text-transform:uppercase;letter-spacing:1px;">Derrière</div>
+          <div class="muted" style="font-size:12px;">Rotation 180°</div>
+        </div>
+        <div style="font-size:24px;font-weight:800;color:#b3a0ff;text-align:center;line-height:1.35;">
+          1/1<br>2/2<br>4/4
+        </div>
+      </div>
+
+      <!-- ➡️ DROITE -->
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:12px;margin-bottom:14px;
+                  background:linear-gradient(135deg,rgba(255,207,77,.15),rgba(255,207,77,.04));
+                  border:2px solid rgba(255,207,77,.45);">
+        <div style="font-size:38px;line-height:1;">➡️</div>
+        <div style="flex:1;">
+          <div style="font-size:18px;font-weight:800;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;">À droite</div>
+          <div class="muted" style="font-size:12px;">Rotation 270°</div>
+        </div>
+        <div style="font-size:26px;font-weight:800;color:var(--yellow);text-align:center;line-height:1.25;">
+          03/02<br><span style="color:var(--muted);font-size:15px;">et</span><br>4/2
+        </div>
+      </div>
+
+      <!-- ⚡ ASTUCE -->
+      <div style="padding:12px 16px;border-radius:10px;margin-bottom:10px;
+                  background:rgba(255,207,77,.08);border:1px solid rgba(255,207,77,.35);font-size:13px;">
+        <span style="font-weight:700;color:var(--yellow);">⚡ Astuce :</span> si le <strong>1er chiffre < 2e</strong> → <strong style="color:var(--cyan-2);">← gauche</strong> · sinon → <strong style="color:var(--yellow);">→ droite</strong>
+      </div>
+
+      <!-- ⚠️ ATTENTION -->
+      <div style="padding:12px 16px;border-radius:10px;margin-bottom:0;
+                  background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.4);font-size:13px;">
+        <span style="font-weight:700;color:var(--red);">⚠️ ATTENTION :</span> si c'est marqué avant le x/x <em>« confusion contre horaire »</em>, c'est l'<strong style="color:var(--red);">inverse</strong>.
       </div>
     </div>
   </section>
