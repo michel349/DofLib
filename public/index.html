@@ -614,22 +614,17 @@
       <div id="harebourgResult" style="padding:24px;border-radius:14px;margin-bottom:14px;text-align:center;
             background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.2);transition:all .2s;">
         <div id="harebourgDirEmoji" style="font-size:52px;line-height:1;">👆</div>
-        <div id="harebourgDirLabel" style="font-size:22px;font-weight:800;margin-top:8px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Sélectionne une fraction</div>
-        <div id="harebourgDirDetail" class="muted" style="font-size:13px;margin-top:4px;">Clique sur la fraction vue en jeu ci-dessous</div>
+        <div id="harebourgDirLabel" style="font-size:22px;font-weight:800;margin-top:8px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Clique la direction</div>
+        <div id="harebourgDirDetail" class="muted" style="font-size:13px;margin-top:4px;">⬅️ normal · ↺ contre-horaire</div>
         <div id="harebourgDirNotice" style="display:none;margin-top:12px;padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(255,92,92,.12);color:var(--red);border:1px solid rgba(255,92,92,.4);"></div>
       </div>
-
-      <!-- ⚠️ TOGGLE CONFUSION -->
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px;cursor:pointer;padding:10px 14px;border-radius:8px;background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.35);flex-wrap:wrap;">
-        <input type="checkbox" id="harebourgInverse" onchange="updateHarebourgResult()" style="width:auto;accent-color:var(--red);">
-        <strong style="color:var(--red);">⚠️ Confusion contre horaire</strong>
-        <span class="muted" style="font-size:11px;">inverse gauche / droite</span>
-      </label>
 
       <!-- 🔢 GRILLE DES FRACTIONS -->
       <h2 style="font-size:.85rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:10px;">🔢 Fraction affichée en jeu</h2>
       <div id="harebourgGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
-      <p class="muted" style="font-size:11px;margin-top:8px;">Chaque case = fraction possible. Clique celle que tu vois à l'écran.</p>
+      <p class="muted" style="font-size:11px;margin-top:8px;">
+        Clique <strong style="color:var(--cyan-2);">⬅️</strong> = normal · <strong style="color:var(--red);">↺</strong> = contre-horaire — un seul clic, c'est tout.
+      </p>
 
       <!-- ⚡ ASTUCE -->
       <div style="padding:12px 16px;border-radius:10px;margin-bottom:10px;
@@ -865,7 +860,7 @@ document.querySelectorAll('nav button').forEach(btn => {
 });
 
 // ============================================================
-//  HAREBOUG — SÉLECTEUR DE FRACTIONS
+//  HAREBOUG — CLIC DIRECT (normal / contre-horaire)
 // ============================================================
 const HA_FRACTIONS = ['1/1','1/2','1/3','1/4','2/1','2/2','2/3','2/4','3/1','3/2','3/3','3/4','4/1','4/2','4/3','4/4'];
 
@@ -883,79 +878,58 @@ const HA_STYLE = {
   droite:   { emoji: '➡️', label: 'À droite',   color: 'var(--yellow)',  bg: 'linear-gradient(135deg,rgba(255,207,77,.18),rgba(255,207,77,.05))', border: 'rgba(255,207,77,.5)' }
 };
 
-let haSelectedFraction = null;
+function getHADirection(fraction, inverse) {
+  let dir = HA_DIRECTIONS[fraction] || 'gauche';
+  if (inverse) {
+    if (dir === 'gauche') dir = 'droite';
+    else if (dir === 'droite') dir = 'gauche';
+  }
+  return dir;
+}
 
 function buildHarebourgGrid() {
   const grid = document.getElementById('harebourgGrid');
   grid.innerHTML = HA_FRACTIONS.map(f => {
     const [num, den] = f.split('/');
+    const stN = HA_STYLE[getHADirection(f, false)];
+    const stI = HA_STYLE[getHADirection(f, true)];
     return `
-      <button data-fraction="${f}"
-              onclick="selectHarebourgFraction('${f}')"
-              style="padding:14px 0;border-radius:10px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:800;color:var(--text);
-                     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
-                     transition:all .15s;">
-        <span style="font-size:11px;color:var(--muted);font-weight:600;">${num}</span>
-        <span style="font-size:11px;color:var(--muted);font-weight:600;">/</span>
-        <span style="font-size:11px;color:var(--muted);font-weight:600;">${den}</span>
-      </button>
+      <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px;text-align:center;background:rgba(255,255,255,.03);">
+        <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;">${num}<span style="color:var(--muted);font-size:11px;">/</span>${den}</div>
+        <div style="display:flex;gap:5px;">
+          <button onclick="selectHarebourgDirection('${f}', false)"
+                  title="Sans confusion"
+                  style="flex:1;padding:7px 0;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--cyan-2);background:rgba(0,166,255,.12);border:1px solid rgba(0,166,255,.4);transition:all .12s;">
+            ${stN.emoji}
+          </button>
+          <button onclick="selectHarebourgDirection('${f}', true)"
+                  title="Confusion contre horaire"
+                  style="flex:1;padding:7px 0;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--red);background:rgba(255,92,92,.12);border:1px solid rgba(255,92,92,.4);transition:all .12s;">
+            ↺ ${stI.emoji}
+          </button>
+        </div>
+      </div>
     `;
   }).join('');
 }
 
-function selectHarebourgFraction(fraction) {
-  haSelectedFraction = fraction;
-  updateHarebourgResult();
-  document.querySelectorAll('#harebourgGrid button').forEach(btn => {
-    const isSelected = btn.dataset.fraction === fraction;
-    if (isSelected) {
-      btn.style.background = 'rgba(0,166,255,.25)';
-      btn.style.borderColor = 'rgba(0,166,255,.7)';
-      btn.style.boxShadow = '0 0 14px rgba(0,166,255,.3)';
-    } else {
-      btn.style.background = 'rgba(255,255,255,.05)';
-      btn.style.borderColor = 'rgba(255,255,255,.12)';
-      btn.style.boxShadow = 'none';
-    }
-  });
-  document.getElementById('harebourgResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function updateHarebourgResult() {
+function selectHarebourgDirection(fraction, inverse) {
+  const dir = getHADirection(fraction, inverse);
+  const st = HA_STYLE[dir];
   const result = document.getElementById('harebourgResult');
   const emojiEl = document.getElementById('harebourgDirEmoji');
   const labelEl = document.getElementById('harebourgDirLabel');
   const detailEl = document.getElementById('harebourgDirDetail');
   const noticeEl = document.getElementById('harebourgDirNotice');
-  const inverse = document.getElementById('harebourgInverse').checked;
-
-  if (!haSelectedFraction) {
-    result.style.background = 'rgba(255,255,255,.04)';
-    result.style.border = '2px dashed rgba(255,255,255,.2)';
-    emojiEl.textContent = '👆';
-    labelEl.textContent = 'Sélectionne une fraction';
-    labelEl.style.color = 'var(--muted)';
-    detailEl.textContent = 'Clique sur la fraction vue en jeu ci-dessous';
-    noticeEl.style.display = 'none';
-    return;
-  }
-
-  let dir = HA_DIRECTIONS[haSelectedFraction] || 'gauche';
-  if (inverse) {
-    if (dir === 'gauche') dir = 'droite';
-    else if (dir === 'droite') dir = 'gauche';
-  }
-  const st = HA_STYLE[dir];
 
   result.style.background = st.bg;
   result.style.border = '2px solid ' + st.border;
   emojiEl.textContent = st.emoji;
   labelEl.textContent = st.label;
   labelEl.style.color = st.color;
-  detailEl.textContent = `Fraction ${haSelectedFraction} → tape ${st.label.toLowerCase()}`;
+  detailEl.textContent = `Fraction ${fraction}${inverse ? ' · contre-horaire' : ''} → tape ${st.label.toLowerCase()}`;
 
-  noticeEl.style.display = inverse ? 'block' : 'none';
-  noticeEl.textContent = '🔄 Confusion contre horaire active : direction inversée';
+  noticeEl.style.display = 'none';
 }
 
 buildHarebourgGrid();
