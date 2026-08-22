@@ -607,7 +607,7 @@
     <div class="card">
       <h2>🏰 Harebourg — Système des piliers</h2>
       <p class="muted" style="margin-bottom:14px;">
-        Regarde la fraction affichée, puis tape dans la direction correspondante.
+        Repère ta fraction dans les cartes ci-dessous et clique — <strong>haut = normal</strong>, <strong style="color:var(--red);">bas = ↺ contre-horaire</strong>.
       </p>
 
       <!-- 🎯 RÉSULTAT DYNAMIQUE -->
@@ -615,15 +615,15 @@
             background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.2);transition:all .2s;">
         <div id="harebourgDirEmoji" style="font-size:52px;line-height:1;">👆</div>
         <div id="harebourgDirLabel" style="font-size:22px;font-weight:800;margin-top:8px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Clique la direction</div>
-        <div id="harebourgDirDetail" class="muted" style="font-size:13px;margin-top:4px;">⬅️ normal · ↺ contre-horaire</div>
+        <div id="harebourgDirDetail" class="muted" style="font-size:13px;margin-top:4px;">Trouve la fraction → clique sa carte</div>
         <div id="harebourgDirNotice" style="display:none;margin-top:12px;padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(255,92,92,.12);color:var(--red);border:1px solid rgba(255,92,92,.4);"></div>
       </div>
 
-      <!-- 🔢 GRILLE DES FRACTIONS -->
-      <h2 style="font-size:.85rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:10px;">🔢 Fraction affichée en jeu</h2>
-      <div id="harebourgGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
+      <!-- ⚡ SÉLECTEUR ULTRA-RAPIDE -->
+      <h2 style="font-size:.85rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:10px;">⚡ Trouve ta fraction, clique la carte</h2>
+      <div id="harebourgGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
       <p class="muted" style="font-size:11px;margin-top:8px;">
-        Clique <strong style="color:var(--cyan-2);">⬅️</strong> = normal · <strong style="color:var(--red);">↺</strong> = contre-horaire — un seul clic, c'est tout.
+        Rangée du <strong>haut</strong> = normal · Rangée du <strong style="color:var(--red);">bas</strong> = ↺ contre-horaire (déjà inversé)
       </p>
 
       <!-- ⚡ ASTUCE -->
@@ -862,60 +862,48 @@ document.querySelectorAll('nav button').forEach(btn => {
 // ============================================================
 //  HAREBOUG — CLIC DIRECT (normal / contre-horaire)
 // ============================================================
-const HA_FRACTIONS = ['1/1','1/2','1/3','1/4','2/1','2/2','2/3','2/4','3/1','3/2','3/3','3/4','4/1','4/2','4/3','4/4'];
-
-// Direction pour chaque fraction (hors confusion)
-const HA_DIRECTIONS = {
-  '1/1': 'derriere', '2/2': 'derriere', '4/4': 'derriere', '3/3': 'derriere',
-  '1/2': 'gauche',  '2/4': 'gauche',   '1/3': 'gauche',  '2/3': 'gauche',
-  '3/2': 'droite',  '4/2': 'droite',   '3/1': 'droite',  '4/3': 'droite',
-  '1/4': 'gauche',  '2/1': 'droite',   '3/4': 'gauche',  '4/1': 'droite'
-};
-
 const HA_STYLE = {
   gauche:   { emoji: '⬅️', label: 'À gauche',   color: 'var(--cyan-2)',  bg: 'linear-gradient(135deg,rgba(0,166,255,.18),rgba(0,166,255,.05))', border: 'rgba(0,166,255,.5)' },
   derriere: { emoji: '🔵', label: 'Derrière',   color: '#b3a0ff',        bg: 'linear-gradient(135deg,rgba(123,92,255,.18),rgba(123,92,255,.05))', border: 'rgba(123,92,255,.5)' },
   droite:   { emoji: '➡️', label: 'À droite',   color: 'var(--yellow)',  bg: 'linear-gradient(135deg,rgba(255,207,77,.18),rgba(255,207,77,.05))', border: 'rgba(255,207,77,.5)' }
 };
 
-function getHADirection(fraction, inverse) {
-  let dir = HA_DIRECTIONS[fraction] || 'gauche';
-  if (inverse) {
-    if (dir === 'gauche') dir = 'droite';
-    else if (dir === 'droite') dir = 'gauche';
-  }
-  return dir;
-}
+// 3 cartes normales (haut) + 3 cartes contre-horaire (bas, déjà inversées)
+const HA_GROUPS = [
+  { dir: 'gauche',   inverse: false, fracs: ['1/2','1/3','1/4','2/3','2/4','3/4'] },
+  { dir: 'derriere', inverse: false, fracs: ['1/1','2/2','3/3','4/4'] },
+  { dir: 'droite',   inverse: false, fracs: ['2/1','3/1','4/1','3/2','4/2','4/3'] },
+  { dir: 'droite',   inverse: true,  fracs: ['1/2','1/3','1/4','2/3','2/4','3/4'] },
+  { dir: 'derriere', inverse: true,  fracs: ['1/1','2/2','3/3','4/4'] },
+  { dir: 'gauche',   inverse: true,  fracs: ['2/1','3/1','4/1','3/2','4/2','4/3'] }
+];
 
 function buildHarebourgGrid() {
   const grid = document.getElementById('harebourgGrid');
-  grid.innerHTML = HA_FRACTIONS.map(f => {
-    const [num, den] = f.split('/');
-    const stN = HA_STYLE[getHADirection(f, false)];
-    const stI = HA_STYLE[getHADirection(f, true)];
+  grid.innerHTML = HA_GROUPS.map((g, idx) => {
+    const st = HA_STYLE[g.dir];
+    const inverseBg = 'rgba(255,92,92,.1)';
+    const normalBg = 'rgba(255,255,255,.04)';
     return `
-      <div style="border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px;text-align:center;background:rgba(255,255,255,.03);">
-        <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;">${num}<span style="color:var(--muted);font-size:11px;">/</span>${den}</div>
-        <div style="display:flex;gap:5px;">
-          <button onclick="selectHarebourgDirection('${f}', false)"
-                  title="Sans confusion"
-                  style="flex:1;padding:7px 0;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--cyan-2);background:rgba(0,166,255,.12);border:1px solid rgba(0,166,255,.4);transition:all .12s;">
-            ${stN.emoji}
-          </button>
-          <button onclick="selectHarebourgDirection('${f}', true)"
-                  title="Confusion contre horaire"
-                  style="flex:1;padding:7px 0;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--red);background:rgba(255,92,92,.12);border:1px solid rgba(255,92,92,.4);transition:all .12s;">
-            ↺ ${stI.emoji}
-          </button>
-        </div>
-      </div>
+      <button onclick="selectHarebourgDirection(${idx})"
+              style="cursor:pointer;border-radius:12px;padding:14px 8px;text-align:center;font-family:inherit;
+                     background:${g.inverse ? inverseBg : normalBg};
+                     border:2px solid ${g.inverse ? 'rgba(255,92,92,.45)' : st.border};
+                     transition:all .15s;">
+        ${g.inverse
+          ? '<div style="font-size:10px;font-weight:800;color:var(--red);letter-spacing:.5px;margin-bottom:3px;">↺ CONTRE-HORAIRE</div>'
+          : ''}
+        <div style="font-size:34px;line-height:1.15;">${st.emoji}</div>
+        <div style="font-size:15px;font-weight:800;color:${st.color};letter-spacing:.5px;margin:3px 0 6px;">${st.label.toUpperCase()}</div>
+        <div style="font-size:10.5px;color:var(--muted);font-weight:600;line-height:1.6;">${g.fracs.join(' · ')}</div>
+      </button>
     `;
   }).join('');
 }
 
-function selectHarebourgDirection(fraction, inverse) {
-  const dir = getHADirection(fraction, inverse);
-  const st = HA_STYLE[dir];
+function selectHarebourgDirection(idx) {
+  const g = HA_GROUPS[idx];
+  const st = HA_STYLE[g.dir];
   const result = document.getElementById('harebourgResult');
   const emojiEl = document.getElementById('harebourgDirEmoji');
   const labelEl = document.getElementById('harebourgDirLabel');
@@ -927,9 +915,20 @@ function selectHarebourgDirection(fraction, inverse) {
   emojiEl.textContent = st.emoji;
   labelEl.textContent = st.label;
   labelEl.style.color = st.color;
-  detailEl.textContent = `Fraction ${fraction}${inverse ? ' · contre-horaire' : ''} → tape ${st.label.toLowerCase()}`;
+  detailEl.textContent = g.inverse
+    ? '↺ Contre-horaire → tape ' + st.label.toLowerCase()
+    : 'Normal → tape ' + st.label.toLowerCase();
 
   noticeEl.style.display = 'none';
+
+  document.querySelectorAll('#harebourgGrid button').forEach((el, i) => {
+    const active = i === idx;
+    const gi = HA_GROUPS[i];
+    el.style.background = active
+      ? (gi.inverse ? 'rgba(255,92,92,.3)' : 'rgba(0,166,255,.25)')
+      : (gi.inverse ? 'rgba(255,92,92,.1)' : 'rgba(255,255,255,.04)');
+    el.style.boxShadow = active ? '0 0 18px rgba(0,166,255,.35)' : 'none';
+  });
 }
 
 buildHarebourgGrid();
