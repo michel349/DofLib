@@ -117,6 +117,15 @@ const SCHEMA = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_dofus_recipes_name ON dofus_recipes (lower(result_name));
+
+  -- Farm lists sauvegardées : résultat de génération persisté (survit au reload)
+  CREATE TABLE IF NOT EXISTS farm_lists (
+    id SERIAL PRIMARY KEY,
+    nom TEXT NOT NULL,
+    items JSONB DEFAULT '[]',
+    notes TEXT DEFAULT '',
+    "createdAt" TIMESTAMPTZ DEFAULT now()
+  );
 `;
 
 async function initDb() {
@@ -1039,6 +1048,17 @@ app.put('/api/inventaire', asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// Ajoute (incrémente) une quantité à un item d'inventaire existant ou le crée
+app.post('/api/inventaire/add', asyncHandler(async (req, res) => {
+  const { item_name, quantite = 1 } = req.body;
+  const { rows } = await pool.query(
+    `INSERT INTO inventaire (item_name, quantite) VALUES ($1,$2)
+     ON CONFLICT (item_name) DO UPDATE SET quantite = inventaire.quantite + $2 RETURNING *`,
+    [item_name, quantite]
+  );
+  res.json(rows[0]);
+}));
+
 app.delete('/api/inventaire/:id', asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM inventaire WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
@@ -1214,6 +1234,35 @@ app.get('/api/recipes', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// ---------- Farm Lists sauvegardées ----------
+app.get('/api/farm-lists', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM farm_lists ORDER BY "createdAt" DESC, id DESC');
+  res.json(rows.map(r => ({ ...r, items: r.items || [] })));
+}));
+
+app.post('/api/farm-lists', asyncHandler(async (req, res) => {
+  const { nom, items = [], notes = '' } = req.body;
+  const { rows } = await pool.query(
+    'INSERT INTO farm_lists (nom, items, notes) VALUES ($1,$2,$3) RETURNING *',
+    [nom, JSON.stringify(items), notes]
+  );
+  res.json({ ...rows[0], items: rows[0].items || [] });
+}));
+
+app.put('/api/farm-lists/:id', asyncHandler(async (req, res) => {
+  const { nom, items, notes } = req.body;
+  const { rows } = await pool.query(
+    'UPDATE farm_lists SET nom=$1, items=$2, notes=$3 WHERE id=$4 RETURNING *',
+    [nom, JSON.stringify(items), notes, req.params.id]
+  );
+  res.json({ ...rows[0], items: rows[0].items || [] });
+}));
+
+app.delete('/api/farm-lists/:id', asyncHandler(async (req, res) => {
+  await pool.query('DELETE FROM farm_lists WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
 // ---------- Génération Farm List ----------
 app.post('/api/generate-farm', asyncHandler(async (req, res) => {
   const { items, useInventory = true } = req.body;
@@ -1301,7 +1350,7 @@ app.post('/api/generate-farm', asyncHandler(async (req, res) => {
     .map(([id, info]) => {
       const total = Math.round(info.qte);
       const stock = stockMap[info.name.toLowerCase()] || 0;
-      return { name: info.name, total, stock, toFarm: Math.max(0, total - stock) };
+      return { id: parseInt(id), name: info.name, total, stock, toFarm: Math.max(0, total - stock) };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 

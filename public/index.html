@@ -514,6 +514,7 @@
   <nav>
     <button class="active" data-tab="farm">🧺 Farm List</button>
     <button data-tab="suivi">📋 Suivi</button>
+    <button data-tab="harebourg">🏰 Harebourg</button>
     <button data-tab="objectifs">🎯 Objectifs</button>
     <button data-tab="prix">🪙 Prix HDV</button>
     <button data-tab="brouillons">📝 Brouillons</button>
@@ -545,6 +546,19 @@
         <button class="btn" id="generateBtn" onclick="generateFarm()">🔨 Générer la liste de farm</button>
       </div>
       <div id="generatedList" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card" id="farmSaveCard" style="display:none;">
+      <h2>💾 Sauvegarder cette liste</h2>
+      <div class="row">
+        <input type="text" id="farmListName" placeholder="Nom de la liste (ex: Stuff Poutchi)" style="flex:1;">
+        <select id="farmListSelect" style="width:220px;" onchange="loadFarmList(this.value)">
+          <option value="">— Charger une liste sauvegardée —</option>
+        </select>
+        <button class="btn" onclick="saveFarmList()">💾 Sauvegarder</button>
+        <button class="btn secondary" onclick="deleteFarmList()" id="farmListDeleteBtn" style="display:none;">🗑️ Supprimer</button>
+      </div>
+      <div class="muted" id="farmListInfo" style="font-size:12px;margin-top:6px;"></div>
     </div>
   </section>
 
@@ -585,6 +599,43 @@
         <div class="muted" id="suiviCompteur" style="font-size:12px;"></div>
       </div>
       <div id="suiviList"></div>
+    </div>
+  </section>
+
+  <!-- ============ COMPTE HAREBOUG ============ -->
+  <section id="tab-harebourg" class="tab">
+    <div class="card">
+      <h2>🏰 Compte Harebourg — Mémo technique du donjon</h2>
+      <p class="muted" style="margin-bottom:14px;">
+        Système de rotation des piliers : tape sur le pilier correspondant selon sa position.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Position</th>
+            <th>À gauche</th>
+            <th>Derrière</th>
+            <th>À droite</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Combinaison</strong></td>
+            <td><span class="badge info">1/2 × 2/4</span></td>
+            <td><span class="badge gold">1/1 × 2/2 × 4/4</span></td>
+            <td><span class="badge warning">03/02 × 4/2</span></td>
+          </tr>
+          <tr>
+            <td><strong>Rotation</strong></td>
+            <td>90°</td>
+            <td>180°</td>
+            <td>270°</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="muted" style="margin-top:12px;font-size:12px;">
+        💡 <strong>Rappel :</strong> tape à gauche (90°), derrière (180°) ou à droite (270°) selon la combinaison affichée.
+      </div>
     </div>
   </section>
 
@@ -1046,6 +1097,10 @@ async function deleteFarmItem(id) {
   } catch (e) { alert('Erreur: ' + e.message); }
 }
 
+let lastFarmData = null;
+let currentFarmLists = [];
+let selectedFarmListId = null;
+
 async function generateFarm() {
   if (!currentFarmItems.length) {
     alert('Ajoute d\'abord des items à craft.');
@@ -1058,35 +1113,8 @@ async function generateFarm() {
 
   try {
     const data = await api('/api/generate-farm', { method: 'POST', body: { items: currentFarmItems, useInventory } });
-    const container = document.getElementById('generatedList');
-    let html = '<h3 style="margin-bottom:10px;color:var(--text);font-weight:700;">📋 Ressources nécessaires</h3>';
-
-    if (data.errors && data.errors.length) {
-      html += `<div class="card" style="border-color:rgba(255,92,92,.4);">
-        <h2>⚠️ Erreurs de récupération</h2>
-        ${data.errors.map(e => `<p class="danger-text" style="margin-bottom:4px;">• ${esc(e)}</p>`).join('')}
-      </div>`;
-    }
-
-    if (!data.resources.length) {
-      html += '<p class="muted">Aucune ressource trouvée.</p>';
-    } else {
-      html += `<table>
-        <thead><tr><th>Ressource</th><th>Total</th><th>Stock</th><th>À farmer</th></tr></thead>
-        <tbody>
-        ${data.resources.map(r => `
-          <tr>
-            <td>${esc(r.name)}</td>
-            <td>${formatNumber(r.total)}</td>
-            <td class="${r.stock > 0 ? 'success-text' : 'muted'}">${formatNumber(r.stock)}</td>
-            <td><strong>${formatNumber(r.toFarm)}</strong></td>
-          </tr>
-        `).join('')}
-        </tbody>
-      </table>`;
-    }
-
-    container.innerHTML = html;
+    lastFarmData = data;
+    renderGeneratedFarm(data);
   } catch (e) {
     document.getElementById('generatedList').innerHTML =
       `<div class="card" style="border-color:rgba(255,92,92,.4);"><h2>❌ Erreur</h2><p class="danger-text">${esc(e.message)}</p></div>`;
@@ -1094,6 +1122,152 @@ async function generateFarm() {
     btn.disabled = false;
     btn.textContent = '🔨 Générer la liste de farm';
   }
+}
+
+// Badge de statut pour chaque ressource (OK / Partiel / Manquant)
+function farmStatusBadge(r) {
+  if (r.toFarm <= 0) return { label: '✅ OK', cls: 'success' };
+  if (r.stock > 0) return { label: '⚠️ Partiel', cls: 'warning' };
+  return { label: '❌ Manquant', cls: 'danger' };
+}
+
+// Affiche la farm list générée (tableau amélioré + carte de sauvegarde)
+function renderGeneratedFarm(data) {
+  const container = document.getElementById('generatedList');
+  let html = '<h3 style="margin-bottom:10px;color:var(--text);font-weight:700;">📋 Ressources nécessaires</h3>';
+
+  if (data.errors && data.errors.length) {
+    html += `<div class="card" style="border-color:rgba(255,92,92,.4);">
+      <h2>⚠️ Erreurs de récupération</h2>
+      ${data.errors.map(e => `<p class="danger-text" style="margin-bottom:4px;">• ${esc(e)}</p>`).join('')}
+    </div>`;
+  }
+
+  if (!data.resources.length) {
+    html += '<p class="muted">Aucune ressource trouvée.</p>';
+  } else {
+    html += `<table>
+      <thead><tr><th>Ressource</th><th>Statut</th><th>Total</th><th>Stock</th><th>À farmer</th><th></th></tr></thead>
+      <tbody>
+      ${data.resources.map(r => {
+        const st = farmStatusBadge(r);
+        const d = `data-name="${esc(r.name)}" data-total="${r.total}" data-stock="${r.toFarm}"`;
+        return `
+          <tr>
+            <td><strong>${esc(r.name)}</strong></td>
+            <td><span class="badge ${st.cls}">${st.label}</span></td>
+            <td>${formatNumber(r.total)}</td>
+            <td class="${r.stock > 0 ? 'success-text' : 'muted'}">${formatNumber(r.stock)}</td>
+            <td><strong>${formatNumber(r.toFarm)}</strong></td>
+            <td><button class="btn success small" ${d} title="Ajouter la quantité à l'inventaire" onclick="stockUpResource(this)">➕ Stock</button></td>
+          </tr>
+        `;
+      }).join('')}
+      </tbody>
+    </table>
+    <p class="muted" style="font-size:11.5px;margin-top:8px;">
+      💡 Quand tu as farmé une ressource, clique sur <strong>➕ Stock</strong> : elle est ajoutée à l'inventaire et la liste se recalcule.
+    </p>`;
+  }
+
+  container.innerHTML = html;
+
+  const saveCard = document.getElementById('farmSaveCard');
+  if (saveCard) saveCard.style.display = data.resources.length ? 'block' : 'none';
+  refreshFarmListSelect();
+}
+
+// Ajoute le total farmé d'une ressource à l'inventaire puis recalcule
+async function stockUpResource(btn) {
+  const name = btn.dataset.name;
+  const total = parseInt(btn.dataset.total) || 1;
+  try {
+    await api('/api/inventaire/add', { method: 'POST', body: { item_name: name, quantite: total } });
+    showToast(`📦 +${formatNumber(total)} « ${name} » ajouté au stock`);
+    await loadInventaire();
+    await generateFarm();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+// ---------- Sauvegarde / chargement des farm lists ----------
+async function refreshFarmListSelect() {
+  try {
+    currentFarmLists = await api('/api/farm-lists');
+    const sel = document.getElementById('farmListSelect');
+    sel.innerHTML = '<option value="">— Charger une liste sauvegardée —</option>' +
+      currentFarmLists.map(l => `<option value="${l.id}">${esc(l.nom)} — ${formatDate(l.createdAt)}</option>`).join('');
+    updateFarmListInfo();
+  } catch (e) { console.error(e); }
+}
+
+function updateFarmListInfo() {
+  const info = document.getElementById('farmListInfo');
+  const delBtn = document.getElementById('farmListDeleteBtn');
+  if (!info || !delBtn) return;
+  if (selectedFarmListId) {
+    const l = currentFarmLists.find(x => x.id === selectedFarmListId);
+    info.textContent = l
+      ? `Liste sélectionnée : « ${l.nom} » (${l.items.length} ressources) — modifie puis re-sauvegarde pour mettre à jour.`
+      : '';
+    delBtn.style.display = '';
+  } else {
+    info.textContent = 'Sauvegarde la liste actuellement générée pour la retrouver après un rechargement de page.';
+    delBtn.style.display = 'none';
+  }
+}
+
+async function saveFarmList() {
+  if (!lastFarmData || !lastFarmData.resources.length) {
+    alert('Génère d\'abord une farm list.');
+    return;
+  }
+  const nom = document.getElementById('farmListName').value.trim();
+  if (!nom) { alert('Donne un nom à cette liste.'); return; }
+  try {
+    if (selectedFarmListId) {
+      await api('/api/farm-lists/' + selectedFarmListId, {
+        method: 'PUT',
+        body: { nom, items: lastFarmData.resources, notes: '' }
+      });
+      showToast('💾 Liste mise à jour');
+    } else {
+      const created = await api('/api/farm-lists', {
+        method: 'POST',
+        body: { nom, items: lastFarmData.resources, notes: '' }
+      });
+      selectedFarmListId = created.id;
+      showToast('💾 Liste sauvegardée');
+    }
+    document.getElementById('farmListName').value = '';
+    await refreshFarmListSelect();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function loadFarmList(id) {
+  if (!id) { selectedFarmListId = null; updateFarmListInfo(); return; }
+  try {
+    const lists = await api('/api/farm-lists');
+    const list = lists.find(l => l.id === parseInt(id));
+    if (!list) return;
+    selectedFarmListId = list.id;
+    lastFarmData = { resources: list.items || [], errors: [] };
+    renderGeneratedFarm(lastFarmData);
+    document.getElementById('farmListName').value = list.nom;
+    updateFarmListInfo();
+    showToast('📂 Liste « ' + list.nom + ' » chargée');
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function deleteFarmList() {
+  if (!selectedFarmListId) return;
+  if (!confirm('Supprimer cette liste sauvegardée ?')) return;
+  try {
+    await api('/api/farm-lists/' + selectedFarmListId, { method: 'DELETE' });
+    selectedFarmListId = null;
+    document.getElementById('farmListName').value = '';
+    await refreshFarmListSelect();
+    showToast('🗑️ Liste supprimée');
+  } catch (e) { alert('Erreur: ' + e.message); }
 }
 
 // ============================================================
@@ -1679,6 +1853,7 @@ loadBrouillons();
 loadStuffs();
 loadInventaire();
 loadMaintenanceStats();
+refreshFarmListSelect();
 </script>
 </body>
 </html>
