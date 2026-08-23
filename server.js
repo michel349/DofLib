@@ -126,6 +126,25 @@ const SCHEMA = `
     notes TEXT DEFAULT '',
     "createdAt" TIMESTAMPTZ DEFAULT now()
   );
+
+  -- Paris : paris entre joueurs avec mises et gages
+  CREATE TABLE IF NOT EXISTS paris (
+    id SERIAL PRIMARY KEY,
+    titre TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    statut TEXT DEFAULT 'en_cours' CHECK (statut IN ('en_cours','termine')),
+    gagnant TEXT DEFAULT '',
+    "createdAt" TIMESTAMPTZ DEFAULT now()
+  );
+
+  CREATE TABLE IF NOT EXISTS paris_joueurs (
+    id SERIAL PRIMARY KEY,
+    pari_id INTEGER NOT NULL REFERENCES paris(id) ON DELETE CASCADE,
+    nom TEXT NOT NULL,
+    mise TEXT DEFAULT '',
+    gage TEXT DEFAULT '',
+    "createdAt" TIMESTAMPTZ DEFAULT now()
+  );
 `;
 
 async function initDb() {
@@ -1260,6 +1279,126 @@ app.put('/api/farm-lists/:id', asyncHandler(async (req, res) => {
 
 app.delete('/api/farm-lists/:id', asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM farm_lists WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// ---------- Paris ----------
+// Récupère un pari avec ses joueurs
+async function getPariWithJoueurs(id) {
+  const { rows } = await pool.query(
+    `SELECT p.*,
+       COALESCE(json_agg(
+         json_build_object('id', j.id, 'nom', j.nom, 'mise', j.mise, 'gage', j.gage, 'createdAt', j."createdAt")
+         ORDER BY j.id
+       ) FILTER (WHERE j.id IS NOT NULL), '[]') AS joueurs
+     FROM paris p
+     LEFT JOIN paris_joueurs j ON j.pari_id = p.id
+     WHERE p.id = $1
+     GROUP BY p.id`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+// Récupère tous les paris avec leurs joueurs
+async function getAllParis() {
+  const { rows } = await pool.query(
+    `SELECT p.*,
+       COALESCE(json_agg(
+         json_build_object('id', j.id, 'nom', j.nom, 'mise', j.mise, 'gage', j.gage, 'createdAt', j."createdAt")
+         ORDER BY j.id
+       ) FILTER (WHERE j.id IS NOT NULL), '[]') AS joueurs
+     FROM paris p
+     LEFT JOIN paris_joueurs j ON j.pari_id = p.id
+     GROUP BY p.id
+     ORDER BY
+       CASE WHEN p.statut = 'en_cours' THEN 0 ELSE 1 END,
+       p."createdAt" DESC`
+  );
+  return rows;
+}
+
+app.get('/api/paris', asyncHandler(async (req, res) => {
+  res.json(await getAllParis());
+}));
+
+app.get('/api/paris/:id', asyncHandler(async (req, res) => {
+  const pari = await getPariWithJoueurs(req.params.id);
+  if (!pari) return res.status(404).json({ error: 'Pari introuvable' });
+  res.json(pari);
+}));
+
+app.post('/api/paris', asyncHandler(async (req, res) => {
+  const { titre, description = '' } = req.body;
+  if (!titre || !titre.trim()) return res.status(400).json({ error: 'Un titre est requis' });
+  const { rows } = await pool.query(
+    'INSERT INTO paris (titre, description) VALUES ($1,$2) RETURNING *',
+    [titre.trim(), description]
+  );
+  res.json({ ...rows[0], joueurs: [] });
+}));
+
+app.put('/api/paris/:id', asyncHandler(async (req, res) => {
+  const { titre, description, statut, gagnant } = req.body;
+  let query = 'UPDATE paris SET ';
+  const sets = [];
+  const params = [];
+  if (titre !== undefined) { params.push(titre); sets.push(`titre = $${params.length}`); }
+  if (description !== undefined) { params.push(description); sets.push(`description = $${params.length}`); }
+  if (statut !== undefined) { params.push(statut); sets.push(`statut = $${params.length}`); }
+  if (gagnant !== undefined) { params.push(gagnant); sets.push(`gagnant = $${params.length}`); }
+  if (!sets.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+  params.push(req.params.id);
+  query += sets.join(', ') + ` WHERE id = $${params.length} RETURNING *`;
+  const { rows } = await pool.query(query, params);
+  if (!rows.length) return res.status(404).json({ error: 'Pari introuvable' });
+  res.json(await getPariWithJoueurs(rows[0].id));
+}));
+
+app.delete('/api/paris/:id', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query('DELETE FROM paris WHERE id=$1 RETURNING id', [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Pari introuvable' });
+  res.json({ ok: true });
+}));
+
+// ----- Joueurs d'un pari -----
+app.post('/api/paris/:id/joueurs', asyncHandler(async (req, res) => {
+  const { nom, mise = '', gage = '' } = req.body;
+  if (!nom || !nom.trim()) return res.status(400).json({ error: 'Un nom de joueur est requis' });
+  // Vérifie que le pari existe
+  const pari = await getPariWithJoueurs(req.params.id);
+  if (!pari) return res.status(404).json({ error: 'Pari introuvable' });
+  // Pas de doublon de nom dans le même pari
+  const existing = pari.joueurs || [];
+  if (existing.some(j => j.nom.toLowerCase() === nom.trim().toLowerCase())) {
+    return res.status(400).json({ error: 'Ce joueur est déjà dans le pari' });
+  }
+  const { rows } = await pool.query(
+    'INSERT INTO paris_joueurs (pari_id, nom, mise, gage) VALUES ($1,$2,$3,$4) RETURNING *',
+    [req.params.id, nom.trim(), mise, gage]
+  );
+  res.json(rows[0]);
+}));
+
+app.put('/api/paris/joueurs/:id', asyncHandler(async (req, res) => {
+  const { nom, mise, gage } = req.body;
+  let query = 'UPDATE paris_joueurs SET ';
+  const sets = [];
+  const params = [];
+  if (nom !== undefined) { params.push(nom); sets.push(`nom = $${params.length}`); }
+  if (mise !== undefined) { params.push(mise); sets.push(`mise = $${params.length}`); }
+  if (gage !== undefined) { params.push(gage); sets.push(`gage = $${params.length}`); }
+  if (!sets.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+  params.push(req.params.id);
+  query += sets.join(', ') + ` WHERE id = $${params.length} RETURNING *`;
+  const { rows } = await pool.query(query, params);
+  if (!rows.length) return res.status(404).json({ error: 'Joueur introuvable' });
+  res.json(rows[0]);
+}));
+
+app.delete('/api/paris/joueurs/:id', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query('DELETE FROM paris_joueurs WHERE id=$1 RETURNING id', [req.params.id]);
+  if (!rows.length) return res.status(404).json({ error: 'Joueur introuvable' });
   res.json({ ok: true });
 }));
 

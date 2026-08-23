@@ -520,6 +520,7 @@
     <button data-tab="brouillons">📝 Brouillons</button>
     <button data-tab="stuffs">🎒 Stuffs</button>
     <button data-tab="inventaire">📦 Inventaire</button>
+    <button data-tab="paris">🤝 Paris</button>
     <button data-tab="maintenance">⚙️ Maintenance</button>
   </nav>
 </header>
@@ -736,6 +737,25 @@
         <input type="number" id="invQtyAdd" value="1" min="0" style="width:80px;" title="Quantité">
       </div>
       <div id="inventaireList"></div>
+    </div>
+  </section>
+
+  <!-- ============ PARIS ============ -->
+  <section id="tab-paris" class="tab">
+    <div class="card">
+      <h2>🤝 Nouveau pari</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <input class="grow" type="text" id="pariTitre" placeholder="Le défi (ex: mon Iop 200 avant ton Ecaflip)">
+      </div>
+      <div class="row">
+        <input class="grow" type="text" id="pariDescription" placeholder="Description (règles, délai...)" style="flex:2;">
+        <button class="btn" onclick="createPari()">🎲 Lancer le pari</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🏆 Paris en cours</h2>
+      <div id="parisList"></div>
     </div>
   </section>
 
@@ -1870,6 +1890,136 @@ async function deleteInventaire(id) {
 }
 
 // ============================================================
+//  PARIS
+// ============================================================
+let currentParis = [];
+
+async function loadParis() {
+  try {
+    currentParis = await api('/api/paris');
+    renderParis();
+  } catch (e) { console.error(e); }
+}
+
+function renderParis() {
+  const container = document.getElementById('parisList');
+  if (!currentParis.length) {
+    container.innerHTML = '<p class="muted">Aucun pari pour le moment. Lance le premier ! 🎲</p>';
+    return;
+  }
+  container.innerHTML = currentParis.map(p => {
+    const enCours = p.statut === 'en_cours';
+    const joueurs = (p.joueurs || []);
+    return `
+      <div class="list-item" style="align-items:flex-start;flex-direction:column;gap:10px;">
+        <div class="row" style="width:100%;">
+          <div style="flex:1;min-width:180px;">
+            <strong style="font-size:14.5px;">${esc(p.titre)}</strong>
+            ${enCours
+              ? '<span class="badge info" style="margin-left:8px;">⚔️ En cours</span>'
+              : `<span class="badge success" style="margin-left:8px;">🏆 ${esc(p.gagnant || 'Terminé')}</span>`}
+            ${p.description ? `<p class="muted" style="margin-top:4px;white-space:pre-wrap;">${esc(p.description)}</p>` : ''}
+            <p class="muted" style="font-size:11px;margin-top:4px;">Créé le ${formatDate(p.createdAt)} · ${joueurs.length} joueur(s)</p>
+          </div>
+          <div class="row">
+            ${enCours ? `<button class="btn success small" onclick="finishPari(${p.id})">🏆 Déclarer le gagnant</button>` : ''}
+            <button class="btn danger small" onclick="deletePari(${p.id})">✕</button>
+          </div>
+        </div>
+
+        ${joueurs.length ? `
+        <table style="width:100%;">
+          <thead><tr><th>Joueur</th><th>Mise</th><th>Gage</th><th></th></tr></thead>
+          <tbody>
+          ${joueurs.map(j => `
+            <tr>
+              <td><strong>${esc(j.nom)}</strong></td>
+              <td>${esc(j.mise || '—')}</td>
+              <td>${esc(j.gage || '—')}</td>
+              <td><button class="btn danger small" onclick="deleteJoueur(${p.id}, ${j.id})">✕</button></td>
+            </tr>
+          `).join('')}
+          </tbody>
+        </table>` : '<p class="muted" style="font-size:12px;">Aucun joueur inscrit pour l\'instant.</p>'}
+
+        ${enCours ? `
+        <div class="row" style="width:100%;border-top:1px dashed rgba(255,255,255,.1);padding-top:10px;">
+          <input style="flex:0 1 130px;" type="text" placeholder="Nom du joueur" id="joueurNom_${p.id}">
+          <input style="flex:1 1 150px;" type="text" placeholder="💰 Sa mise (ex: 50 000 kamas)" id="joueurMise_${p.id}">
+          <input style="flex:1 1 150px;" type="text" placeholder="🎁 Le gage si il perd (ex: 1 mois à farmer)" id="joueurGage_${p.id}">
+          <button class="btn" onclick="addJoueur(${p.id})">➕ Ajouter</button>
+        </div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function createPari() {
+  const titre = document.getElementById('pariTitre').value.trim();
+  if (!titre) { alert('Le défi est obligatoire.'); return; }
+  const description = document.getElementById('pariDescription').value.trim();
+  try {
+    await api('/api/paris', { method: 'POST', body: { titre, description } });
+    document.getElementById('pariTitre').value = '';
+    document.getElementById('pariDescription').value = '';
+    showToast('🎲 Pari lancé !');
+    await loadParis();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function addJoueur(pariId) {
+  const nom = document.getElementById('joueurNom_' + pariId).value.trim();
+  if (!nom) { alert('Le nom du joueur est requis.'); return; }
+  const mise = document.getElementById('joueurMise_' + pariId).value.trim();
+  const gage = document.getElementById('joueurGage_' + pariId).value.trim();
+  try {
+    await api('/api/paris/' + pariId + '/joueurs', { method: 'POST', body: { nom, mise, gage } });
+    showToast('👤 ' + nom + ' ajouté au pari');
+    await loadParis();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function deleteJoueur(pariId, joueurId) {
+  if (!confirm('Retirer ce joueur du pari ?')) return;
+  try {
+    await api('/api/paris/joueurs/' + joueurId, { method: 'DELETE' });
+    await loadParis();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function finishPari(pariId) {
+  const pari = currentParis.find(p => p.id === pariId);
+  if (!pari) return;
+  const joueurs = pari.joueurs || [];
+  if (!joueurs.length) { alert('Ajoute au moins un joueur avant de déclarer un gagnant.'); return; }
+  const choix = prompt('Qui est le gagnant ?\n\n' + joueurs.map((j, i) => (i + 1) + '. ' + j.nom).join('\n') + '\n\nTape le nom du gagnant (ou le numéro) :');
+  if (!choix) return;
+  let gagnant = '';
+  const num = parseInt(choix);
+  if (!isNaN(num) && num >= 1 && num <= joueurs.length) {
+    gagnant = joueurs[num - 1].nom;
+  } else {
+    const found = joueurs.find(j => j.nom.toLowerCase() === choix.trim().toLowerCase());
+    if (found) gagnant = found.nom;
+    else { alert('Joueur introuvable. Annulé.'); return; }
+  }
+  try {
+    await api('/api/paris/' + pariId, { method: 'PUT', body: { statut: 'termine', gagnant } });
+    showToast('🏆 ' + gagnant + ' a gagné !');
+    await loadParis();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+async function deletePari(id) {
+  if (!confirm('Supprimer définitivement ce pari (avec ses joueurs) ?')) return;
+  try {
+    await api('/api/paris/' + id, { method: 'DELETE' });
+    showToast('🗑️ Pari supprimé');
+    await loadParis();
+  } catch (e) { alert('Erreur: ' + e.message); }
+}
+
+// ============================================================
 //  INITIALISATION
 // ============================================================
 loadFarmItems();
@@ -1879,6 +2029,7 @@ loadPrix();
 loadBrouillons();
 loadStuffs();
 loadInventaire();
+loadParis();
 loadMaintenanceStats();
 refreshFarmListSelect();
 </script>
