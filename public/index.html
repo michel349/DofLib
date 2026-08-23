@@ -660,10 +660,31 @@
       </div>
 
       <!-- ⚠️ ATTENTION -->
-      <div style="padding:12px 16px;border-radius:10px;margin-bottom:0;
+      <div style="padding:12px 16px;border-radius:10px;margin-bottom:14px;
                   background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.4);font-size:13px;">
         <span style="font-weight:700;color:var(--red);">⚠️ ATTENTION :</span> si c'est marqué avant le x/x <em>« confusion contre horaire »</em>, c'est l'<strong style="color:var(--red);">inverse</strong>.
       </div>
+    </div>
+
+    <!-- 📊 COMPTEUR DONJONS / BANDELETTES -->
+    <div class="card">
+      <h2>📊 Compteur de farm</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div style="border-radius:12px;padding:18px 12px;text-align:center;background:linear-gradient(135deg,rgba(123,92,255,.15),rgba(123,92,255,.04));border:2px solid rgba(123,92,255,.5);">
+          <div style="font-size:12px;font-weight:800;color:#b3a0ff;letter-spacing:1px;margin-bottom:4px;">🏰 DONJONS EFFECTUÉS</div>
+          <div id="harebourgDonjons" style="font-size:34px;font-weight:800;color:var(--text);line-height:1.2;">0</div>
+        </div>
+        <div style="border-radius:12px;padding:18px 12px;text-align:center;background:linear-gradient(135deg,rgba(255,207,77,.15),rgba(255,207,77,.04));border:2px solid rgba(255,207,77,.5);">
+          <div style="font-size:12px;font-weight:800;color:var(--yellow);letter-spacing:1px;margin-bottom:4px;">🎗️ BANDELETTES LOOTÉES</div>
+          <div id="harebourgBandelettes" style="font-size:34px;font-weight:800;color:var(--text);line-height:1.2;">0</div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:center;gap:10px;flex-wrap:wrap;">
+        <button class="btn" onclick="addHarebourg('donjon')">🏰 +1 Donjon</button>
+        <button class="btn" onclick="addHarebourg('bandelette')">🎗️ +1 Bandelette</button>
+        <button class="btn secondary" onclick="resetHarebourg()">↺ Remettre à zéro</button>
+      </div>
+      <div class="muted" id="harebourgUpdated" style="font-size:12px;margin-top:8px;text-align:center;"></div>
     </div>
   </section>
 
@@ -2020,6 +2041,56 @@ async function deletePari(id) {
 }
 
 // ============================================================
+//  COMPTEUR HAREBOUG
+// ============================================================
+let harebourgState = { donjons: 0, bandelettes: 0, updatedAt: null };
+
+async function loadHarebourg() {
+  try {
+    harebourgState = await api('/api/harebourg');
+    renderHarebourg();
+  } catch (e) { console.error(e); }
+}
+
+function renderHarebourg() {
+  const elDonjons = document.getElementById('harebourgDonjons');
+  const elBandelettes = document.getElementById('harebourgBandelettes');
+  const elUpdated = document.getElementById('harebourgUpdated');
+  if (elDonjons) elDonjons.textContent = formatNumber(harebourgState.donjons || 0);
+  if (elBandelettes) elBandelettes.textContent = formatNumber(harebourgState.bandelettes || 0);
+  if (elUpdated) {
+    elUpdated.textContent = harebourgState.updatedAt
+      ? 'Dernière mise à jour : ' + new Date(harebourgState.updatedAt).toLocaleString('fr-FR')
+      : '';
+  }
+}
+
+async function addHarebourg(type) {
+  const endpoint = type === 'donjon' ? '/api/harebourg/donjon' : '/api/harebourg/bandelette';
+  try {
+    harebourgState = await api(endpoint, { method: 'POST' });
+    renderHarebourg();
+    showToast(type === 'donjon' ? '🏰 +1 Donjon effectué' : '🎗️ +1 Bandelette lootée');
+  } catch (e) {
+    alert('Erreur: ' + e.message);
+  }
+}
+
+async function resetHarebourg() {
+  if (!confirm('Remettre le compteur Harebourg à zéro ?')) return;
+  try {
+    harebourgState = await api('/api/harebourg', {
+      method: 'PUT',
+      body: { donjons: 0, bandelettes: 0 }
+    });
+    renderHarebourg();
+    showToast('↺ Compteur remis à zéro');
+  } catch (e) {
+    alert('Erreur: ' + e.message);
+  }
+}
+
+// ============================================================
 //  INITIALISATION
 // ============================================================
 loadFarmItems();
@@ -2030,6 +2101,7 @@ loadBrouillons();
 loadStuffs();
 loadInventaire();
 loadParis();
+loadHarebourg();
 loadMaintenanceStats();
 refreshFarmListSelect();
 </script>

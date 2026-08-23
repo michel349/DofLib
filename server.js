@@ -145,6 +145,18 @@ const SCHEMA = `
     gage TEXT DEFAULT '',
     "createdAt" TIMESTAMPTZ DEFAULT now()
   );
+
+  -- Compteur Harebourg : nombre de donjons effectués + bandelettes lootées
+  CREATE TABLE IF NOT EXISTS harebourg_stats (
+    id INTEGER PRIMARY KEY,
+    donjons INTEGER DEFAULT 0,
+    bandelettes INTEGER DEFAULT 0,
+    "updatedAt" TIMESTAMPTZ DEFAULT now()
+  );
+
+  INSERT INTO harebourg_stats (id, donjons, bandelettes)
+  VALUES (1, 0, 0)
+  ON CONFLICT (id) DO NOTHING;
 `;
 
 async function initDb() {
@@ -1400,6 +1412,66 @@ app.delete('/api/paris/joueurs/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query('DELETE FROM paris_joueurs WHERE id=$1 RETURNING id', [req.params.id]);
   if (!rows.length) return res.status(404).json({ error: 'Joueur introuvable' });
   res.json({ ok: true });
+}));
+
+// ---------- Compteur Harebourg ----------
+// Compte les donjons effectués et les bandelettes de Harebourg lootées.
+// Sur le serveur d'exposition, "un donjon" = une victoire sur le Comte
+// → pas de multiplication à faire côté client (le +1 se fait ici).
+app.get('/api/harebourg', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT donjons, bandelettes, "updatedAt" FROM harebourg_stats WHERE id = 1'
+  );
+  if (!rows.length) return res.json({ donjons: 0, bandelettes: 0, updatedAt: null });
+  res.json(rows[0]);
+}));
+
+// +1 donjon
+app.post('/api/harebourg/donjon', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    `INSERT INTO harebourg_stats (id, donjons, bandelettes)
+     VALUES (1, 1, 0)
+     ON CONFLICT (id) DO UPDATE SET
+       donjons = harebourg_stats.donjons + 1,
+       "updatedAt" = now()
+     RETURNING donjons, bandelettes, "updatedAt"`,
+  );
+  res.json(rows[0]);
+}));
+
+// +1 bandelette
+app.post('/api/harebourg/bandelette', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    `INSERT INTO harebourg_stats (id, donjons, bandelettes)
+     VALUES (1, 0, 1)
+     ON CONFLICT (id) DO UPDATE SET
+       bandelettes = harebourg_stats.bandelettes + 1,
+       "updatedAt" = now()
+     RETURNING donjons, bandelettes, "updatedAt"`,
+  );
+  res.json(rows[0]);
+}));
+
+// Mise à jour / remise à zéro des compteurs
+app.put('/api/harebourg', asyncHandler(async (req, res) => {
+  const { donjons, bandelettes } = req.body;
+  if (donjons === undefined && bandelettes === undefined) {
+    return res.status(400).json({ error: 'Préciser donjons et/ou bandelettes' });
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO harebourg_stats (id, donjons, bandelettes)
+     VALUES (1, $1, $2)
+     ON CONFLICT (id) DO UPDATE SET
+       donjons = $1,
+       bandelettes = $2,
+       "updatedAt" = now()
+     RETURNING donjons, bandelettes, "updatedAt"`,
+    [
+      donjons !== undefined ? Math.max(0, parseInt(donjons) || 0) : 0,
+      bandelettes !== undefined ? Math.max(0, parseInt(bandelettes) || 0) : 0
+    ]
+  );
+  res.json(rows[0]);
 }));
 
 // ---------- Génération Farm List ----------
