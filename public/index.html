@@ -664,7 +664,6 @@
                   background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.4);font-size:13px;">
         <span style="font-weight:700;color:var(--red);">⚠️ ATTENTION :</span> si c'est marqué avant le x/x <em>« confusion contre horaire »</em>, c'est l'<strong style="color:var(--red);">inverse</strong>.
       </div>
-    </div>
 
    <!-- 📊 COMPTEUR DONJONS / BANDELETTES -->
       <div class="card">
@@ -685,11 +684,12 @@
           <button class="btn secondary" onclick="resetHarebourg()">↺ Remettre à zéro</button>
         </div>
         <!-- 🎯 TAUX DE DROP -->
-        <div id="harebourgTaux" style="text-align:center;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px;">
+        <div id="harebourgTaux" style="text-align:center;font-size:13px;font-weight:700;color:var(--muted);margin-top:12px;">
           Taux : —
         </div>
         <div class="muted" id="harebourgUpdated" style="font-size:12px;margin-top:8px;text-align:center;"></div>
       </div>
+    </div><!-- /card piliers -->
   </section>
 
   <!-- ============ OBJECTIFS ============ -->
@@ -2059,9 +2059,17 @@ async function loadHarebourg() {
 function renderHarebourg() {
   const elDonjons = document.getElementById('harebourgDonjons');
   const elBandelettes = document.getElementById('harebourgBandelettes');
+  const elTaux = document.getElementById('harebourgTaux');
   const elUpdated = document.getElementById('harebourgUpdated');
-  if (elDonjons) elDonjons.textContent = formatNumber(harebourgState.donjons || 0);
-  if (elBandelettes) elBandelettes.textContent = formatNumber(harebourgState.bandelettes || 0);
+  const d = harebourgState.donjons || 0;
+  const b = harebourgState.bandelettes || 0;
+  if (elDonjons) elDonjons.textContent = formatNumber(d);
+  if (elBandelettes) elBandelettes.textContent = formatNumber(b);
+  if (elTaux) {
+    const taux = d > 0 ? (b / d * 100).toFixed(1) + '%' : '—';
+    const ratio = b > 0 ? ' (1 / ' + (d / b).toFixed(1) + ' DJ)' : '';
+    elTaux.textContent = 'Taux : ' + taux + ratio;
+  }
   if (elUpdated) {
     elUpdated.textContent = harebourgState.updatedAt
       ? 'Dernière mise à jour : ' + new Date(harebourgState.updatedAt).toLocaleString('fr-FR')
@@ -2109,5 +2117,6 @@ loadHarebourg();
 loadMaintenanceStats();
 refreshFarmListSelect();
 </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"8607d2a720d14b038279025b2b5a82e5"}' crossorigin="anonymous"></script>
 </body>
 </html>
