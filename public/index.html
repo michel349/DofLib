@@ -2108,7 +2108,7 @@ async function openHarebourgPip() {
   try {
     harebourgPipWindow = await window.documentPictureInPicture.requestWindow({
       width: 300,
-      height: 210
+      height: 250
     });
 
     harebourgPipWindow.document.body.innerHTML = `
@@ -2132,6 +2132,11 @@ async function openHarebourgPip() {
         .donj { background: rgba(123,92,255,.15); border: 2px solid rgba(123,92,255,.5); color: #b3a0ff; }
         .band { background: rgba(255,207,77,.15); border: 2px solid rgba(255,207,77,.5); color: #ffcf4d; }
         .taux { color: #8a94b0; font-size: 13px; font-weight: 700; }
+        .pip-btns { display: flex; gap: 8px; margin-top: 10px; }
+        .pip-btn { flex: 1; padding: 8px 0; border: none; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; transition: transform .05s; }
+        .pip-btn.donj { background: rgba(123,92,255,.9); color: #fff; }
+        .pip-btn.band { background: rgba(255,207,77,.9); color: #1a1500; }
+        .pip-btn:active { transform: scale(.95); }
       </style>
       <div class="box">
         <div class="row">
@@ -2145,7 +2150,17 @@ async function openHarebourgPip() {
           </div>
         </div>
         <div id="pipTaux" class="taux">Taux : —</div>
+        <div class="pip-btns">
+          <button class="pip-btn donj" onclick="addHarebourg('donjon')">+1 🏰</button>
+          <button class="pip-btn band" onclick="addHarebourg('bandelette')">+1 🎗️</button>
+        </div>
       </div>`;
+
+    // Expose les fonctions de gestion dans le contexte de la fenêtre PiP
+    // (les onclick des boutons du PiP les appellent, et les closures
+    //  font le lien avec l'API serveur + le rafraîchissement des deux vues)
+    harebourgPipWindow.addHarebourg = addHarebourg;
+    harebourgPipWindow.resetHarebourg = resetHarebourg;
 
     // Ferme proprement la référence quand la fenêtre est fermée par l'utilisateur
     harebourgPipWindow.addEventListener('pagehide', () => { harebourgPipWindow = null; });
