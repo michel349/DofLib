@@ -1520,6 +1520,21 @@ app.post('/api/harebourg/bandelette', asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+function renderHarebourg() {
+  const donjons     = harebourgData.donjons;
+  const bandelettes = harebourgData.bandelettes;
+
+  document.getElementById('harebourgDonjons').textContent     = donjons;
+  document.getElementById('harebourgBandelettes').textContent = bandelettes;
+
+  // 👇 ici
+  const taux = donjons > 0
+    ? ((bandelettes / donjons) * 100).toFixed(1) + '%'
+    : '—';
+
+  document.getElementById('harebourgTaux').textContent = `Taux : ${taux}`;
+}
+
 // Mise à jour / remise à zéro des compteurs
 app.put('/api/harebourg', asyncHandler(async (req, res) => {
   const { donjons, bandelettes } = req.body;
