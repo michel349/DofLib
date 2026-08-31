@@ -690,6 +690,28 @@
         </div>
         <div class="muted" id="harebourgUpdated" style="font-size:12px;margin-top:8px;text-align:center;"></div>
       </div>
+
+      <!-- 📅 HISTORIQUE JOURNALIER -->
+      <div class="card">
+        <h2>📅 Historique (sauvegarde automatique par jour)</h2>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="text-align:left;color:var(--muted);font-size:12px;">
+                <th style="padding:8px 10px;">Date</th>
+                <th style="padding:8px 10px;text-align:center;">🏰 Donjons</th>
+                <th style="padding:8px 10px;text-align:center;">🎗️ Bandelettes</th>
+                <th style="padding:8px 10px;text-align:center;">Taux</th>
+              </tr>
+            </thead>
+            <tbody id="harebourgHistoryBody"></tbody>
+            <tfoot id="harebourgHistoryFoot"></tfoot>
+          </table>
+        </div>
+        <div class="muted" id="harebourgHistoryEmpty" style="font-size:12.5px;margin-top:10px;text-align:center;display:none;">
+          Aucune donnée pour le moment — chaque +1 sera enregistré automatiquement ici.
+        </div>
+      </div>
     </div><!-- /card piliers -->
   </section>
 
@@ -2049,13 +2071,63 @@ async function deletePari(id) {
 //  COMPTEUR HAREBOUG
 // ============================================================
 let harebourgState = { donjons: 0, bandelettes: 0, updatedAt: null };
+let harebourgHistory = { days: [], total: { donjons: 0, bandelettes: 0 } };
 let harebourgPipWindow = null;
 
 async function loadHarebourg() {
   try {
-    harebourgState = await api('/api/harebourg');
+    [harebourgState, harebourgHistory] = await Promise.all([
+      api('/api/harebourg'),
+      api('/api/harebourg/history')
+    ]);
     renderHarebourg();
+    renderHarebourgHistory();
   } catch (e) { console.error(e); }
+}
+
+// Recharge uniquement l'historique (utilisé après chaque +1)
+async function refreshHarebourgHistory() {
+  try {
+    harebourgHistory = await api('/api/harebourg/history');
+    renderHarebourgHistory();
+  } catch (e) { console.error(e); }
+}
+
+function renderHarebourgHistory() {
+  const body = document.getElementById('harebourgHistoryBody');
+  const foot = document.getElementById('harebourgHistoryFoot');
+  const empty = document.getElementById('harebourgHistoryEmpty');
+  if (!body) return;
+  const days = harebourgHistory.days || [];
+  const t = harebourgHistory.total || { donjons: 0, bandelettes: 0 };
+
+  if (empty) empty.style.display = days.length ? 'none' : 'block';
+
+  // Jours triés du plus récent au plus ancien
+  body.innerHTML = [...days].sort((a, b) => (a.day < b.day ? 1 : -1)).map(d => {
+    const dn = Number(d.donjons || 0);
+    const bd = Number(d.bandelettes || 0);
+    const taux = dn > 0 ? (bd / dn * 100).toFixed(1) + '%' : '—';
+    const date = new Date(d.day + 'T00:00:00');
+    const dateLabel = isNaN(date.getTime()) ? d.day : date.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+      <td style="padding:8px 10px;">${dateLabel}</td>
+      <td style="padding:8px 10px;text-align:center;color:#b3a0ff;font-weight:700;">${formatNumber(dn)}</td>
+      <td style="padding:8px 10px;text-align:center;color:var(--yellow);font-weight:700;">${formatNumber(bd)}</td>
+      <td style="padding:8px 10px;text-align:center;color:var(--muted);">${taux}</td>
+    </tr>`;
+  }).join('');
+
+  // Ligne totale
+  const tD = Number(t.donjons || 0);
+  const tB = Number(t.bandelettes || 0);
+  const tTaux = tD > 0 ? (tB / tD * 100).toFixed(1) + '%' : '—';
+  foot.innerHTML = `<tr style="border-top:2px solid var(--border,#3a4a6b);">
+    <td style="padding:10px;font-weight:800;">TOTAL</td>
+    <td style="padding:10px;text-align:center;font-weight:800;color:#b3a0ff;">${formatNumber(tD)}</td>
+    <td style="padding:10px;text-align:center;font-weight:800;color:var(--yellow);">${formatNumber(tB)}</td>
+    <td style="padding:10px;text-align:center;font-weight:800;">${tTaux}</td>
+  </tr>`;
 }
 
 function renderHarebourg() {
@@ -2175,6 +2247,7 @@ async function addHarebourg(type) {
   try {
     harebourgState = await api(endpoint, { method: 'POST' });
     renderHarebourg();
+    refreshHarebourgHistory();
     showToast(type === 'donjon' ? '🏰 +1 Donjon effectué' : '🎗️ +1 Bandelette lootée');
   } catch (e) {
     alert('Erreur: ' + e.message);

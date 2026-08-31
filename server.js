@@ -157,6 +157,13 @@ const SCHEMA = `
   INSERT INTO harebourg_stats (id, donjons, bandelettes)
   VALUES (1, 0, 0)
   ON CONFLICT (id) DO NOTHING;
+
+  -- Historique journalier Harebourg : une ligne par jour (sauvegarde auto)
+  CREATE TABLE IF NOT EXISTS harebourg_history (
+    day DATE PRIMARY KEY,
+    donjons INTEGER DEFAULT 0,
+    bandelettes INTEGER DEFAULT 0
+  );
 `;
 
 async function initDb() {
@@ -1436,6 +1443,13 @@ app.post('/api/harebourg/donjon', asyncHandler(async (req, res) => {
        "updatedAt" = now()
      RETURNING donjons, bandelettes, "updatedAt"`,
   );
+  // Sauvegarde automatique dans l'historique du jour en cours
+  await pool.query(
+    `INSERT INTO harebourg_history (day, donjons, bandelettes)
+     VALUES (CURRENT_DATE, 1, 0)
+     ON CONFLICT (day) DO UPDATE SET
+       donjons = harebourg_history.donjons + 1`
+  );
   res.json(rows[0]);
 }));
 
@@ -1449,7 +1463,26 @@ app.post('/api/harebourg/bandelette', asyncHandler(async (req, res) => {
        "updatedAt" = now()
      RETURNING donjons, bandelettes, "updatedAt"`,
   );
+  // Sauvegarde automatique dans l'historique du jour en cours
+  await pool.query(
+    `INSERT INTO harebourg_history (day, donjons, bandelettes)
+     VALUES (CURRENT_DATE, 0, 1)
+     ON CONFLICT (day) DO UPDATE SET
+       bandelettes = harebourg_history.bandelettes + 1`
+  );
   res.json(rows[0]);
+}));
+
+// Historique journalier (jours + total cumulé)
+app.get('/api/harebourg/history', asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT day, donjons, bandelettes FROM harebourg_history ORDER BY day ASC'
+  );
+  const total = rows.reduce((acc, r) => ({
+    donjons: acc.donjons + Number(r.donjons || 0),
+    bandelettes: acc.bandelettes + Number(r.bandelettes || 0)
+  }), { donjons: 0, bandelettes: 0 });
+  res.json({ days: rows, total });
 }));
 
 function renderHarebourg() {
