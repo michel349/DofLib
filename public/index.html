@@ -682,6 +682,7 @@
           <button class="btn" onclick="addHarebourg('donjon')">🏰 +1 Donjon</button>
           <button class="btn" onclick="addHarebourg('bandelette')">🎗️ +1 Bandelette</button>
           <button class="btn secondary" onclick="resetHarebourg()">↺ Remettre à zéro</button>
+          <button class="btn secondary" onclick="openHarebourgPip()" title="Afficher le compteur dans une petite fenêtre flottante (Chrome/Edge)">📺 PiP</button>
         </div>
         <!-- 🎯 TAUX DE DROP -->
         <div id="harebourgTaux" style="text-align:center;font-size:13px;font-weight:700;color:var(--muted);margin-top:12px;">
@@ -2048,6 +2049,7 @@ async function deletePari(id) {
 //  COMPTEUR HAREBOUG
 // ============================================================
 let harebourgState = { donjons: 0, bandelettes: 0, updatedAt: null };
+let harebourgPipWindow = null;
 
 async function loadHarebourg() {
   try {
@@ -2074,6 +2076,82 @@ function renderHarebourg() {
     elUpdated.textContent = harebourgState.updatedAt
       ? 'Dernière mise à jour : ' + new Date(harebourgState.updatedAt).toLocaleString('fr-FR')
       : '';
+  }
+  renderHarebourgPip();
+}
+
+function renderHarebourgPip() {
+  if (!harebourgPipWindow || harebourgPipWindow.closed) return;
+  try {
+    const doc = harebourgPipWindow.document;
+    const d = harebourgState.donjons || 0;
+    const b = harebourgState.bandelettes || 0;
+    const taux = d > 0 ? (b / d * 100).toFixed(1) + '%' : '—';
+    const elD = doc.getElementById('pipDonjons');
+    const elB = doc.getElementById('pipBandelettes');
+    const elT = doc.getElementById('pipTaux');
+    if (elD) elD.textContent = formatNumber(d);
+    if (elB) elB.textContent = formatNumber(b);
+    if (elT) elT.textContent = 'Taux : ' + taux;
+  } catch (e) { /* fenêtre fermée */ }
+}
+
+async function openHarebourgPip() {
+  if (!('documentPictureInPicture' in window)) {
+    alert('Ton navigateur ne supporte pas le PiP document.\nUtilise Chrome ou Edge (version 116+).');
+    return;
+  }
+  if (harebourgPipWindow && !harebourgPipWindow.closed) {
+    harebourgPipWindow.focus();
+    return;
+  }
+  try {
+    harebourgPipWindow = await window.documentPictureInPicture.requestWindow({
+      width: 300,
+      height: 210
+    });
+
+    harebourgPipWindow.document.body.innerHTML = `
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+          height: 100%;
+          background: linear-gradient(160deg, #0b1022, #131a33);
+          color: #e8ecf8;
+          font-family: "Segoe UI", system-ui, sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+        }
+        .box { text-align: center; width: 100%; }
+        .big { font-size: 42px; font-weight: 800; line-height: 1.1; }
+        .lbl { font-size: 11px; font-weight: 800; letter-spacing: 1px; }
+        .row { display: flex; gap: 16px; justify-content: center; margin-bottom: 8px; }
+        .col { flex: 1; border-radius: 12px; padding: 12px 6px; }
+        .donj { background: rgba(123,92,255,.15); border: 2px solid rgba(123,92,255,.5); color: #b3a0ff; }
+        .band { background: rgba(255,207,77,.15); border: 2px solid rgba(255,207,77,.5); color: #ffcf4d; }
+        .taux { color: #8a94b0; font-size: 13px; font-weight: 700; }
+      </style>
+      <div class="box">
+        <div class="row">
+          <div class="col donj">
+            <div class="lbl">🏰 DONJONS</div>
+            <div id="pipDonjons" class="big">0</div>
+          </div>
+          <div class="col band">
+            <div class="lbl">🎗️ BANDELETTES</div>
+            <div id="pipBandelettes" class="big">0</div>
+          </div>
+        </div>
+        <div id="pipTaux" class="taux">Taux : —</div>
+      </div>`;
+
+    // Ferme proprement la référence quand la fenêtre est fermée par l'utilisateur
+    harebourgPipWindow.addEventListener('pagehide', () => { harebourgPipWindow = null; });
+    renderHarebourgPip();
+  } catch (e) {
+    console.error('PiP:', e);
   }
 }
 
