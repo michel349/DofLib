@@ -2108,8 +2108,12 @@ function renderHarebourgHistory() {
     const dn = Number(d.donjons || 0);
     const bd = Number(d.bandelettes || 0);
     const taux = dn > 0 ? (bd / dn * 100).toFixed(1) + '%' : '—';
-    const date = new Date(d.day + 'T00:00:00');
-    const dateLabel = isNaN(date.getTime()) ? d.day : date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    // day est un timestamp ISO ("2026-08-31T00:00:00.000Z") → on garde juste YYYY-MM-DD
+    // puis on formate manuellement en JJ/MM/AA pour éviter tout décalage de fuseau
+    const parts = (String(d.day).slice(0, 10)).split('-');
+    const dateLabel = parts.length === 3
+      ? `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`
+      : String(d.day);
     return `<tr style="border-bottom:1px solid rgba(255,255,255,.06);">
       <td style="padding:8px 10px;">${dateLabel}</td>
       <td style="padding:8px 10px;text-align:center;color:#b3a0ff;font-weight:700;">${formatNumber(dn)}</td>
