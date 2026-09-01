@@ -920,6 +920,15 @@ async function computeFarmList(items) {
 // ============================================================
 const app = express();
 app.use(express.json());
+
+// Désactive le cache du HTML pour que les mises à jour soient toujours visibles
+// (les autres fichiers statiques gardent un cache court)
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path.endsWith('.html')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 const asyncHandler = fn => (req, res) => fn(req, res).catch(e => res.status(500).json({ error: e.message }));
